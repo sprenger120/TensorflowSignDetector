@@ -1,0 +1,15 @@
+CMakeCache.txt
+CMakeFiles
+CMakeScripts
+Testing
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+.idea
+cmake-build-debug
+cmake-build-release
+training_data/png
+training_data/png_gt
+training_data/gt_train.txt
