@@ -41,6 +41,10 @@ static int fileCallback(const char *fpath, const struct stat *sb, int typeflag) 
 
 
 int main() {
+    // commando prompt that takes filename,
+    //read sign coordinates from file and display rectangle with imgview
+
+
   //grab all video files
   ftw("training_data/png", fileCallback, 16);
 
