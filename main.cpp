@@ -69,14 +69,21 @@ struct trainingDataInfo{
 //where training data directoy structure is stored seen from working directory
 string PATH("training_data");
 
-int main() {
+unsigned int sign_count[43];
+
+int main(int argc, char *argv[]) {
+  for (unsigned int &i : sign_count) {
+    i = 0;
+  }
+
+  std::cout << argv[0] << std::endl;
   vector<trainingDataInfo> trainingData;
     // commando prompt that takes filename,
     //read sign coordinates from file and display rectangle with imgview
 
 
   //grab all pictures files
-  ftw((PATH + "/png").c_str(), fileCallback, 16);
+  ftw((PATH + "/png").c_str(), fileCallback, 16); //file tree walk (linux)
 
   cout<<"Found "<<picturesFiles.size()<<" actual pictures\n";
 
@@ -151,12 +158,6 @@ int main() {
   cout<<"Loaded training data for "<<trainingData.size()<<" pictures\n";
 
 
-  int edgeThresh = 1;
-  int lowThreshold = 50;
-  int const max_lowThreshold = 100;
-  int ratio = 3;
-  int kernel_size = 3;
-
   //first demo;  scrolling through files and rendering a rectangle around pictures
   for(trainingDataInfo& trData : trainingData) {
     cv::Mat matPicture = cv::imread(PATH + "/png/" + trData.filename);
@@ -165,78 +166,15 @@ int main() {
       continue;
     }
 
+    //crop image and save to png
     cv::imshow("SignDetecc_original", matPicture);
-    blur( matPicture, matPicture, cv::Size(4,4) );
-
-    cvtColor( matPicture, matPicture, CV_BGR2GRAY );
-    equalizeHist( matPicture, matPicture );
-    //matPicture.convertTo(matPicture, -1, 2, 0);
-
-    //matPicture.convertTo(matPicture, CV_8UC3, 1, 50);
-
-    /// Reduce noise with a kernel 3x3
-
-
-    /// Canny detector
-    cv::Mat cannysMat;
-    Canny( matPicture, cannysMat, lowThreshold, lowThreshold*ratio, kernel_size );
-
-    matPicture = cannysMat;
-
-    int erosion_elem = 0;
-    int erosion_size = 1;
-    int dilation_elem = 1;
-    int dilation_size = 1;
-    int const max_elem = 2;
-    int const max_kernel_size = 21;
-
-/*
-    Mat element = getStructuringElement( MORPH_RECT,
-                                         Size( 2*erosion_size + 1, 2*erosion_size+1 ),
-                                         Point( erosion_size, erosion_size ) );
-
-    /// Apply the erosion operation
-    erode( matPicture, matPicture, element );
-
-
-    Mat element2 = getStructuringElement( MORPH_RECT,
-                                         Size( 2*dilation_size + 1, 2*dilation_size+1 ),
-                                         Point( dilation_size, dilation_size ) );
-    /// Apply the dilation operation
-    //dilate( matPicture, matPicture, element2 );
-*/
-
-    Mat houghsPic(matPicture.rows, matPicture.cols, CV_8UC1);
-    //cvtColor(matPicture, houghsPic, CV_GRAY2BGR);
-    vector<Vec4i> lines;
-    HoughLinesP(matPicture, lines, 1, CV_PI/180, 50, 50, 10 );
-    for( size_t i = 0; i < lines.size(); i++ )
-    {
-      Vec4i l = lines[i];
-      line( houghsPic, Point(l[0], l[1]), Point(l[2], l[3]), Scalar(255), 1, CV_AA);
-    }
-
-
-    //matPicture = houghsPic;
-
-    /*for(Rect& rec : trData.signs) {
-      //color scalaer is bgr format
-      cv::rectangle(matPicture,rec.upperLeft, rec.lowerRight, cv::Scalar(0,255,0),2);
-      cv::putText(matPicture, to_string(rec.signId), rec.lowerRight + cv::Point(10,10),
-          cv::FONT_HERSHEY_PLAIN, 3, cv::Scalar(0,255,0), 3);
-    }*/
-
-
-
-
-    cv::imshow("SignDetecc", matPicture);
-    // waits two seconds, kills programm if esc was pressed
-    for(int i=0;i<20;++i){
-      int k = cv::waitKey(100);
-      if(k==27){
-        cv::destroyAllWindows();
-        return 0;
-      }
+    for (SignPlace &rec : trData.signs) {
+      cv::Rect region(rec.upperLeft.x, rec.upperLeft.y,
+                      rec.lowerRight.x - rec.upperLeft.x, rec.lowerRight.y - rec.upperLeft.y);
+      cv::Mat cropped = matPicture(region);
+      std::stringstream ss;
+      ss << "sign_id=" << rec.signId << "_no=" << sign_count[rec.signId]++ << ".png";
+      imwrite(ss.str(), cropped);
     }
   }
 
