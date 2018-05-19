@@ -1,6 +1,5 @@
 #include <iostream>
 #include <opencv2/opencv.hpp>
-//#include <opencv2/videoio.hpp>
 #include <fstream>
 #include <ctime>
 #include <string>
@@ -9,6 +8,8 @@
 #include <fnmatch.h>
 #include <algorithm>
 #include <string>
+#include "Line.h"
+#include "LinesProcessor.h"
 
 using namespace std;
 using namespace cv;
@@ -152,10 +153,11 @@ int main() {
 
 
   int edgeThresh = 1;
-  int lowThreshold = 50;
+  int lowThreshold = 30;
   int const max_lowThreshold = 100;
   int ratio = 3;
   int kernel_size = 3;
+  LinesProcessor linesProcessor;
 
   //first demo;  scrolling through files and rendering a rectangle around pictures
   for(trainingDataInfo& trData : trainingData) {
@@ -182,6 +184,10 @@ int main() {
     Canny( matPicture, cannysMat, lowThreshold, lowThreshold*ratio, kernel_size );
 
     matPicture = cannysMat;
+
+
+    auto list = linesProcessor.makeLines(matPicture);
+
 
     int erosion_elem = 0;
     int erosion_size = 1;
