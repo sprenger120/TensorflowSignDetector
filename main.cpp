@@ -126,6 +126,16 @@ string PATH("training_data");
 
 unsigned int sign_count[43];
 
+void eqHistColor(Mat& src){
+    Mat yuv;
+    cvtColor(src, yuv, COLOR_BGR2YUV);
+    vector<Mat> yuv_planes;
+    split(yuv, yuv_planes);
+    equalizeHist(yuv_planes[0],yuv_planes[0]); //equalize brightness channel only
+    merge(yuv_planes,yuv);
+    cvtColor(yuv, src, COLOR_YUV2BGR);
+}
+
 int main(int argc, char *argv[]) {
     for (unsigned int &i : sign_count) {
         i = 0;
@@ -223,8 +233,10 @@ int main(int argc, char *argv[]) {
 
         //crop image and save to png
         cv::namedWindow("cropped", CV_WINDOW_AUTOSIZE);
+        //TODO: eqHistColor(matPicture);
         cv::imshow("SignDetecc_original", matPicture);
         for (SignPlace &rec : trData.signs) {
+            if(rec.signId != 1) continue;
             cv::Rect region(rec.upperLeft.x, rec.upperLeft.y,
                             rec.lowerRight.x - rec.upperLeft.x, rec.lowerRight.y - rec.upperLeft.y);
             showHist(matPicture, "hist_full_image");
