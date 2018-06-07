@@ -236,7 +236,7 @@ int main(int argc, char *argv[]) {
         //TODO: eqHistColor(matPicture);
         cv::imshow("SignDetecc_original", matPicture);
         for (SignPlace &rec : trData.signs) {
-            if(rec.signId != 1) continue;
+            if(rec.signId != 38) continue;
             cv::Rect region(rec.upperLeft.x, rec.upperLeft.y,
                             rec.lowerRight.x - rec.upperLeft.x, rec.lowerRight.y - rec.upperLeft.y);
             showHist(matPicture, "hist_full_image");
