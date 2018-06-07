@@ -13,3 +13,4 @@ cmake-build-release
 training_data/png
 training_data/png_gt
 training_data/gt_train.txt
+training_data/croppedSigns

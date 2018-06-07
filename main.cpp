@@ -173,7 +173,7 @@ int main(int argc, char *argv[]) {
                       rec.lowerRight.x - rec.upperLeft.x, rec.lowerRight.y - rec.upperLeft.y);
       cv::Mat cropped = matPicture(region);
       std::stringstream ss;
-      ss << "sign_id=" << rec.signId << "_no=" << sign_count[rec.signId]++ << ".png";
+      ss << "training_data/croppedSigns/sign_id=" << rec.signId << "_no=" << sign_count[rec.signId]++ << ".png";
       imwrite(ss.str(), cropped);
     }
   }
