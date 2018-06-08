@@ -40,8 +40,8 @@ TrainingData::TrainingData()
       }
     }
 
-    cout << "Sign #" << biggestID << " spotted " << signOccCopy[biggestID].cnt << " times\n";
-    signOccCopy.erase(signOccCopy.begin()+biggestID);
+    cout << "#" << biggestID << " spotted " << signOccCopy[biggestID].cnt << " times\n";
+    signOccCopy[biggestID].cnt = 0;
   }
 
 }
