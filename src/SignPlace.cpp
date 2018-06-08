@@ -1,4 +1,3 @@
-#include <opencv2/core/types.hpp>
 #include "SignPlace.h"
 #include "../include/SignPlace.h"
 
@@ -89,4 +88,12 @@ const bool SignPlace::isOverlappingEnough(const SignPlace& givenSignPl) const
   SignPlace unionArea(unionUpperLeft, unionLowerRight, 0);
   //union area can't exceed this signPlace's area
   return unionArea.area / area > SIGN_PLACE_MIN_OVERLAPPING_PERCENTAGE;
+}
+
+
+void SignPlace::drawOutline(cv::Mat pic,const cv::Scalar& color) const
+{
+  cv::rectangle(pic,upperLeft, lowerRight, color,2);
+  cv::putText(pic, std::to_string(signId), lowerRight + cv::Point(10,10),
+      cv::FONT_HERSHEY_PLAIN, 3, color, 3);
 }

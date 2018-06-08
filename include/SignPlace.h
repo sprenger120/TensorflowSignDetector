@@ -1,6 +1,6 @@
 #ifndef SIGN_DETECC_SIGNPLACE_H
 #define SIGN_DETECC_SIGNPLACE_H
-#include <cv.h>
+#include <opencv2/opencv.hpp>
 
 /**
  * Contains the region where a sign is placed in a training picture
@@ -23,6 +23,13 @@ public:
    * @return true if there is enough overlap
    */
   const bool isOverlappingEnough(const SignPlace&) const;
+
+  /**
+   * Draws outline of rect defined by this class
+   * @param pic
+   * @param color
+   */
+  void drawOutline(cv::Mat pic, const cv::Scalar& color) const;
 private:
   const float getArea() const;
 
