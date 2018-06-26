@@ -9,6 +9,7 @@
 #include <fnmatch.h>
 #include <algorithm>
 #include <string>
+#include <numeric>
 
 using namespace std;
 using namespace cv;
@@ -21,25 +22,24 @@ static const char *filters[] = {
 };
 
 static int fileCallback(const char *fpath, const struct stat *sb, int typeflag) {
-    /* if it's a file */
-    if (typeflag == FTW_F) {
-        int i;
-        /* for each filter, */
-        for (i = 0; i < sizeof(filters) / sizeof(filters[0]); i++) {
-            /* if the filename matches the filter, */
-            if (fnmatch(filters[i], fpath, FNM_CASEFOLD) == 0) {
-                /* do something */
-                picturesFiles.push_back(string(fpath));
-                //printf("found image: %s\n", fpath);
-                break;
-            }
-        }
+  /* if it's a file */
+  if (typeflag == FTW_F) {
+    int i;
+    /* for each filter, */
+    for (i = 0; i < sizeof(filters) / sizeof(filters[0]); i++) {
+      /* if the filename matches the filter, */
+      if (fnmatch(filters[i], fpath, FNM_CASEFOLD) == 0) {
+        /* do something */
+        picturesFiles.push_back(string(fpath));
+        //printf("found image: %s\n", fpath);
+        break;
+      }
     }
+  }
 
-    /* tell ftw to continue */
-    return 0;
+  /* tell ftw to continue */
+  return 0;
 }
-
 
 struct SignPlace {
   /*
@@ -57,14 +57,13 @@ struct SignPlace {
   int signId;
 };
 
-struct trainingDataInfo{
+struct trainingDataInfo {
   //header: img; x_start; y_start; x_end; y_end; id
   string filename;
 
   //borders around signs
   vector<SignPlace> signs;
 };
-
 
 //where training data directoy structure is stored seen from working directory
 string PATH("training_data");
@@ -78,21 +77,20 @@ int main(int argc, char *argv[]) {
 
   std::cout << argv[0] << std::endl;
   vector<trainingDataInfo> trainingData;
-    // commando prompt that takes filename,
-    //read sign coordinates from file and display rectangle with imgview
+  // commando prompt that takes filename,
+  //read sign coordinates from file and display rectangle with imgview
 
 
   //grab all pictures files
   ftw((PATH + "/png").c_str(), fileCallback, 16); //file tree walk (linux)
 
-  cout<<"Found "<<picturesFiles.size()<<" actual pictures\n";
+  cout << "Found " << picturesFiles.size() << " actual pictures\n";
 
   //read csv file
-  std::ifstream file( PATH + "/gt_train.txt" );
+  std::ifstream file(PATH + "/gt_train.txt");
 
-  if ( !file )
-  {
-    cout<<"Unable to open gt_train file\n";
+  if (!file) {
+    cout << "Unable to open gt_train file\n";
     return -1;
   }
 
@@ -114,8 +112,8 @@ int main(int argc, char *argv[]) {
     //have to do this because there might me multiple entries for the same file
     //signalling that there are multiple signs in the picture
     //lineBuffer is affectedFile currently
-    trainingDataInfo* ptrAffectedFile = nullptr;
-    for(trainingDataInfo& trData : trainingData) {
+    trainingDataInfo *ptrAffectedFile = nullptr;
+    for (trainingDataInfo &trData : trainingData) {
       if (trData.filename == lineBuffer) {
         ptrAffectedFile = &trData;
         break;
@@ -127,7 +125,7 @@ int main(int argc, char *argv[]) {
       trData.filename = lineBuffer;
       trainingData.push_back(trData);
       //trainingData vector might create a copy so we get the ptr out of it
-      ptrAffectedFile = &trainingData[trainingData.size()-1];
+      ptrAffectedFile = &trainingData[trainingData.size() - 1];
     }
 
     SignPlace rect;
@@ -155,22 +153,31 @@ int main(int argc, char *argv[]) {
     ptrAffectedFile->signs.push_back(rect);
   }
 
-  cout<<"Loaded training data for "<<trainingData.size()<<" pictures\n";
+  cout << "Loaded training data for " << trainingData.size() << " pictures\n";
 
+  std::vector<int> sign_heights;
+  std::vector<int> sign_widths;
 
   //first demo;  scrolling through files and rendering a rectangle around pictures
-  for(trainingDataInfo& trData : trainingData) {
+  for (trainingDataInfo &trData : trainingData) {
     cv::Mat matPicture = cv::imread(PATH + "/png/" + trData.filename);
     if (matPicture.data == nullptr) {
-      cout<<"Unable to load picture for training data entry '"<<trData.filename<<"'\n";
+      //cout << "Unable to load picture for training data entry '" << trData.filename << "'\n";
       continue;
     }
 
     //crop image and save to png
     cv::imshow("SignDetecc_original", matPicture);
     for (SignPlace &rec : trData.signs) {
+      int sign_width = rec.lowerRight.x - rec.upperLeft.x;
+      int sign_height = rec.lowerRight.y - rec.upperLeft.y;
+      sign_heights.push_back(sign_height);
+      sign_widths.push_back(sign_width);
+      std::cout << trData.filename << "(" << matPicture.cols << "x" << matPicture.rows << ")"
+                << ": Found Sign with width=" << sign_width << " and height="
+                << sign_height << std::endl;
       cv::Rect region(rec.upperLeft.x, rec.upperLeft.y,
-                      rec.lowerRight.x - rec.upperLeft.x, rec.lowerRight.y - rec.upperLeft.y);
+                      sign_width, sign_height);
       cv::Mat cropped = matPicture(region);
       std::stringstream ss;
       ss << "training_data/croppedSigns/sign_id=" << rec.signId << "_no=" << sign_count[rec.signId]++ << ".png";
@@ -178,9 +185,25 @@ int main(int argc, char *argv[]) {
     }
   }
 
-
-
-
+  std::nth_element(sign_heights.begin(), sign_heights.begin() + sign_heights.size() / 2, sign_heights.end());
+  std::nth_element(sign_widths.begin(), sign_widths.begin() + sign_widths.size() / 2, sign_widths.end());
+  int sign_width_median = sign_widths[sign_widths.size() / 2];
+  int sign_height_median = sign_heights[sign_heights.size() / 2];
+  double sign_width_mean = std::accumulate(sign_widths.begin(), sign_widths.end(), 0) / (double) sign_widths.size();
+  double sign_height_mean = std::accumulate(sign_heights.begin(), sign_heights.end(), 0) / (double) sign_heights.size();
+  int sign_width_max = *std::max_element(sign_widths.begin(), sign_widths.end());
+  int sign_height_max = *std::max_element(sign_heights.begin(), sign_heights.end());
+  int sign_width_min = *std::min_element(sign_widths.begin(), sign_widths.end());
+  int sign_height_min = *std::min_element(sign_heights.begin(), sign_heights.end());
+  std::cout << "A total of " << sign_heights.size() << " signs were processed." << std::endl;
+  std::cout << "The mean values of (width x height) are (" << sign_width_mean << " x " << sign_height_mean << ")"
+            << std::endl;
+  std::cout << "The median values of (width x height) are (" << sign_width_median << " x " << sign_height_median << ")"
+            << std::endl;
+  std::cout << "The maximum values of (width x height) are (" << sign_width_max << " x " << sign_height_max << ")"
+            << std::endl;
+  std::cout << "The minimum values of (width x height) are (" << sign_width_min << " x " << sign_height_min << ")"
+            << std::endl;
   cv::destroyAllWindows();
   return 0;
 }
