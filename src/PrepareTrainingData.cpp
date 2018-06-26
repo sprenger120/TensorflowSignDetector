@@ -37,7 +37,12 @@ void PrintWidthHeightStatistics(vector<int> &sign_heights, vector<int> &sign_wid
 }
 
 void CropWithStatistics(TrainingData::TrainingData td) {
+  std::ofstream positive_description_file;
+  positive_description_file.open("info.dat");
   unsigned int sign_count[43];
+  for (auto i = 0; i < 43; ++i) {
+    sign_count[i] = 0;
+  }
   std::vector<int> sign_heights;
   std::vector<int> sign_widths;
   for (auto trData : td.GetTrainingData()) {
@@ -61,8 +66,11 @@ void CropWithStatistics(TrainingData::TrainingData td) {
       ss << "training_data/croppedSigns/sign_id=" << rec.getSignId() << "_no=" << sign_count[rec.getSignId()]++
          << ".png";
       imwrite(ss.str(), cropped);
+      positive_description_file << ss.str() << "  " << rec.getSignId() << "  " << "0 0 " << sign_width << " "
+                                << sign_height << std::endl;
     }
   }
+  positive_description_file.close();
   PrintWidthHeightStatistics(sign_heights, sign_widths);
 }
 
@@ -70,6 +78,9 @@ void GenerateBackgroundSamples(TrainingData::TrainingData td,
                                unsigned int samples_per_picture,
                                unsigned int sample_height,
                                unsigned int sample_width) {
+  std::ofstream negative_description_file;
+  negative_description_file.open("bg.txt");
+
   for (auto trData : td.GetTrainingData()) {
     cv::Mat matPicture = cv::imread("training_data/png/" + trData.filename);
     if (matPicture.data == nullptr) {
@@ -101,15 +112,16 @@ void GenerateBackgroundSamples(TrainingData::TrainingData td,
       ss << "training_data/background/bg_" << trData.filename << "_no=" << i
          << ".png";
       imwrite(ss.str(), cropped);
-
+      negative_description_file << ss.str() << std::endl;
     }
   }
+  negative_description_file.close();
 }
 
 int main() {
   TrainingData::TrainingData trainingData;
-  //CropWithStatistics(trainingData);
-  GenerateBackgroundSamples(trainingData, 5, 44, 43);
+  CropWithStatistics(trainingData);
+  //GenerateBackgroundSamples(trainingData, 5, 44, 43);
   cv::destroyAllWindows();
   return 0;
 }
