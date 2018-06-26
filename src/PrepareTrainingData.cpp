@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <string>
 #include <numeric>
+#include <random>
 
 #include "TrainingData.h"
 
@@ -65,10 +66,50 @@ void CropWithStatistics(TrainingData::TrainingData td) {
   PrintWidthHeightStatistics(sign_heights, sign_widths);
 }
 
+void GenerateBackgroundSamples(TrainingData::TrainingData td,
+                               unsigned int samples_per_picture,
+                               unsigned int sample_height,
+                               unsigned int sample_width) {
+  for (auto trData : td.GetTrainingData()) {
+    cv::Mat matPicture = cv::imread("training_data/png/" + trData.filename);
+    if (matPicture.data == nullptr) {
+      //cout << "Unable to load picture for training data entry '" << trData.filename << "'\n";
+      continue;
+    }
+    std::random_device d;
+    std::uniform_int_distribution<int> left_rd(0, td.getAreaWithSigns().width - sample_width - 1);
+    std::uniform_int_distribution<int> top_rd(0, td.getAreaWithSigns().height - sample_height - 1);
+    matPicture = matPicture(td.getAreaWithSigns());
+    std::vector<cv::Rect> samples;
+    for (auto i = 0; i < samples_per_picture; ++i) {
+      cv::Rect sample_rect;
+      bool intersects_sign = true;
+      while (intersects_sign) {
+        intersects_sign = false;
+        auto top = (unsigned int) std::round(top_rd(d));
+        auto left = (unsigned int) std::round(left_rd(d));
+        sample_rect = cv::Rect(left, top, sample_width, sample_height);
+        for (auto &sign : trData.signs) {
+          if (sample_rect.contains(sign.getLowerRight()) || sample_rect.contains(sign.getUpperLeft())) {
+            intersects_sign = true;
+            continue;
+          }
+        }
+      }
+      cv::Mat cropped = matPicture(sample_rect);
+      std::stringstream ss;
+      ss << "training_data/background/bg_" << trData.filename << "_no=" << i
+         << ".png";
+      imwrite(ss.str(), cropped);
+
+    }
+  }
+}
+
 int main() {
   TrainingData::TrainingData trainingData;
-  CropWithStatistics(trainingData);
-
+  //CropWithStatistics(trainingData);
+  GenerateBackgroundSamples(trainingData, 5, 44, 43);
   cv::destroyAllWindows();
   return 0;
 }
