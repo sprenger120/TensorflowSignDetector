@@ -1,6 +1,6 @@
 #ifndef SIGN_DETECC_SIGNPLACE_H
 #define SIGN_DETECC_SIGNPLACE_H
-#include <opencv2/opencv.hpp>
+#include <opencv/cv.hpp>
 
 /**
  * Contains the region where a sign is placed in a training picture
