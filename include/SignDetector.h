@@ -7,7 +7,7 @@
 using std::vector;
 
 /**
- * Contains the detection and klassification code
+ * Contains the detection and classification code
  */
 
 class SignDetector {

@@ -156,7 +156,7 @@ SignOccuranceArray TrainingData::countSignOccurances() const
 }
 cv::Rect TrainingData::determineAreaWithSigns() const
 {
-  cv::Point upperLeft(10000, 100000); //todo this may has to be increased if training pictures get larger
+  cv::Point upperLeft(10000, 100000); //todo this may have to be increased if training pictures get larger
   cv::Point lowerRight(0, 0);
 
   for (const trainingDataInfo& tr : _trainingData) {
