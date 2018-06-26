@@ -6,9 +6,11 @@ find_package(OpenCV REQUIRED)
 set(CMAKE_CXX_STANDARD 14)
 
 include_directories(sign_detecc include)
-set(SOURCE_FILES main.cpp src/TrainingData.cpp src/SignDetector.cpp src/SignPlace.cpp include/Types.h)
-add_executable(sign_detecc ${SOURCE_FILES})
+set(SOURCE_FILES  src/TrainingData.cpp src/SignDetector.cpp src/SignPlace.cpp include/Types.h)
+add_executable(sign_detecc main.cpp ${SOURCE_FILES})
 target_link_libraries(sign_detecc ${OpenCV_LIBS} )
+add_executable(prepare_training_data src/PrepareTrainingData.cpp ${SOURCE_FILES})
+target_link_libraries(prepare_training_data ${OpenCV_LIBS} )
 
 
 
