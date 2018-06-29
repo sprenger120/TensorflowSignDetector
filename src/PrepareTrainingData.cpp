@@ -121,7 +121,7 @@ void GenerateBackgroundSamples(TrainingData::TrainingData td,
 
 int main() {
   TrainingData::TrainingData trainingData;
-  //CropWithStatistics(trainingData);
+  CropWithStatistics(trainingData);
   GenerateBackgroundSamples(trainingData, 20, 100, 100);
   cv::destroyAllWindows();
   return 0;
