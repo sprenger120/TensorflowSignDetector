@@ -5,8 +5,48 @@ SignDetector::~SignDetector()
 {
 }
 
+/**
+ * #1 problem:  identifikation der schilder auf bild
+ *  -> straßenschilder grundsätzlich sehr gesättigt
+ *      * erster versuch im RGB raum (raussuchen des dominierenden kanals) zu anfällig für
+ *      schlechte beleuchtung,  keine guten ergebnisse
+ *      * im HSV raum ist sättigung beleuchtungsinvariant (sofern die kamera die farbe überhaupt registriert,
+ *      extreme überbelichtung lässt das schild weiß werden -> keine sättigung und schwarze flecken im S kanal)
+ *  -> schilder nun beleucuntungsinvariant erkennbar
+ *  -> blätter zeichnen sich als großes rauschen im S kanal ab
+ *      * schilder sind nur sehr schwer auszumachen
+ *      * idee: alle grünen sachen komplett schwärzen da es keine grünen straßenschilder gibt
+ *          H von ... bis ... grün (360° range,  opencv geht von 0-180, alles halbieren)
+ *          * muss sehr aufgedreht werden damit auch viel grün verschwindet  als nebeneffekt werden jetzt auch gelbe
+ *          schilder nicht mehr erkannt...
+ *      * scheint teile der bäume zu entfernen aber farbrauschen der kameras macht es schwer
+ *          alles zu entfernen
+ *      * 4x4 blurring hilft gegen farbrauschen
+ *
+ *  -> schilder sind jetzt entweder gut separiert oder stehen als schwarzer fleck in einer großen weißen
+ *      fläche von grünzeug
+ *
+ *  -> schilderextraktion durch pain bucket fill operation (wie bei ms paint)
+ *      dadurch werden zusammenhängende (ohne teile die durch andersfarbige pixel vollständig abgetrennt sind
+ *      zusammengefasst),  dann kann eine bounding box darum gezogen werden (opencv contour findung)
+ *
+ *      * es müssen von vornerein alle viel zu kleinen bounding boxes ignoriert werden (rauschen, einzelne blätter)
+ *
+ *      * es müssen von allen zu langen bildern nur der kopf oder nur der boden betrachtet werden  (manchmal ist der pfeiler des schildes
+ *      mit drauf),
+ *
+ *      * es müssen auf alle viel zu großen bereiche ignoriert werden (größe büsche)
+ *
+ *      * es muss das invertierte bild betrachtet werden da oft schilder die hinter großen büschen stehen als schwarzer flech
+ *      in der großen weißen fläche erscheinen  -> invertiert ist es dann ein weißer fleck
+ *      dort muss aber die gefundene region vergrößert werden weil meistens mit der methode nur die innenfläche der schilder
+ *      gefunden wird
+ *
+ *
+ *
+ */
 
-const vector<SignPlace> SignDetector::detect(const cv::Mat inputImage, const cv::Rect& areaWithSigns) const
+const vector<SignPlace> SignDetector::detect(const cv::Mat inputImage, const cv::Rect& areaWithSigns)
 {
   //cropp of area with no sign, leaving a region of interest
   cv::Mat inputROI(inputImage, areaWithSigns);
@@ -42,18 +82,63 @@ const vector<SignPlace> SignDetector::detect(const cv::Mat inputImage, const cv:
 */
 
 
-  cv::Mat equalized;
-  cvtColor( inputROI, equalized, CV_BGR2GRAY );
-  cv::equalizeHist(equalized,equalized);
+ // red  H = 0
+  // yellow H = 30
+  // pure green  H=60
+  // cyan H = 90
+  // blue H = 120
+  //
+  //
+
   cv::imshow("original", inputROI);
   cv::waitKey(10);
+/*
+  cv::Mat g;
+  inputROI.copyTo(g);
+
+  for (int y = 0;y<inputROI.rows; ++y) {
+    for (int x = 0; x<inputROI.cols; ++x) {
+      //char histAdjPixel = equalized.at<char>(y,x);
+      cv::Vec3b pixel = inputROI.at<cv::Vec3b>(y, x);
+      g.at<cv::Vec3b>(y,x) = cv::Vec3d((float(y)/float(inputROI.rows))*255.0f,255 - (float(y)/float(inputROI.rows))*255.0f,0);
+    }
+  }
+
+  cv::imshow("g", g);
+  cv::waitKey(10);
+
+  cvtColor( g, g, CV_BGR2HSV );
+
+  for (int y = 0;y<inputROI.rows; ++y) {
+    for (int x = 0; x<inputROI.cols; ++x) {
+      //char histAdjPixel = equalized.at<char>(y,x);
+      cv::Vec3b pixel = g.at<cv::Vec3b>(y, x);
+      g.at<cv::Vec3b>(y,x) = cv::Vec3d(pixel[0],pixel[0],pixel[0]);
+    }
+  }
+
+  cv::imshow("g_hsv", g);
+  cv::waitKey(10);
+*/
+
+
+  cv::blur(inputROI,inputROI, cv::Size(4,4));
+
+  //cv::equalizeHist(equalized,equalized);
+  cvtColor( inputROI, inputROI, CV_BGR2HSV );
+
+  cv::Mat h,s,v, s_uncropped;
+
+  inputROI.copyTo(h);
+  inputROI.copyTo(s);
+  inputROI.copyTo(v);
+  inputROI.copyTo(s_uncropped);
 
 
   for (int y = 0;y<inputROI.rows; ++y) {
     for(int x =0;x<inputROI.cols;++x) {
       //char histAdjPixel = equalized.at<char>(y,x);
       cv::Vec3b pixel = inputROI.at<cv::Vec3b>(y,x);
-
 
 
       float lightSum = pixel[2] + pixel[1] + pixel[0];
@@ -69,18 +154,27 @@ const vector<SignPlace> SignDetector::detect(const cv::Mat inputImage, const cv:
       float blueRatio = chBlue / lightSum;
 
 
+      h.at<cv::Vec3b>(y,x) = cv::Vec3d(pixel[0],pixel[0],pixel[0]);
+
+      //blacken saturation image by hue
+
+      if (pixel[0] > 30 && pixel[0] < 105) {
+          s.at<cv::Vec3b>(y,x) = cv::Vec3d(0,0,0);
+      } else {
+          s.at<cv::Vec3b>(y,x) = cv::Vec3d(pixel[1],pixel[1],pixel[1]);
+      }
+
+      s_uncropped.at<cv::Vec3b>(y,x) = cv::Vec3d(pixel[1],pixel[1],pixel[1]);
+      v.at<cv::Vec3b>(y,x) = cv::Vec3d(pixel[2],pixel[2],pixel[2]);
 
       //std::cout<<<<"\n";
-
-      if (redRatio > 0.45) {
+     /* if (redRatio > 0.45) {
         inputROI.at<cv::Vec3b>(y,x) = cv::Vec3d(0,0,255);
       } /*else if (blueRatio > 0.45) {
         inputROI.at<cv::Vec3b>(y,x) = cv::Vec3d(255,0,0);
-      } */else {
-        inputROI.at<cv::Vec3b>(y,x) = cv::Vec3d(0,0,0);
+      } *else {
+
       }
-
-
       //inputROI.at<cv::Vec3b>(y,x) = cv::Vec3d(blueRatio*255,greenRatio*255,redRatio*255);
 
 
@@ -93,13 +187,30 @@ const vector<SignPlace> SignDetector::detect(const cv::Mat inputImage, const cv:
         inputROI.at<cv::Vec3b>(y,x) = cv::Vec3d(255,0,0);
       } else {
         inputROI.at<cv::Vec3b>(y,x) = cv::Vec3d(0,0,0);
-      }*/
+      }*
 
 
       // =  * 2;
-
+*/
      }
   }
+
+  cv::imshow("H", h);
+  cv::waitKey(10);
+  cv::imshow("s", s);
+  cv::waitKey(10);
+  cv::imshow("s_uncropped", s_uncropped);
+/*
+*/
+  //50 vor s threshold seems to remove all the street
+  cv::threshold(s, s, 50, 255,CV_THRESH_BINARY);
+/*
+  cv::imshow("s_thresh", s);
+  cv::waitKey(10);
+
+
+  */
+
 
   /**
    * Dilate / Erode
@@ -107,7 +218,7 @@ const vector<SignPlace> SignDetector::detect(const cv::Mat inputImage, const cv:
 
   int erosion_elem = 0;
   int erosion_size = 1;
-  int dilation_elem = 1;
+  int dilation_elem = 0;
   int dilation_size = 1;
   int const max_elem = 2;
   int const max_kernel_size = 21;
@@ -119,20 +230,20 @@ const vector<SignPlace> SignDetector::detect(const cv::Mat inputImage, const cv:
           cv::Point( erosion_size, erosion_size ) );
 
   /// Apply the erosion operation
-  erode( inputROI, inputROI, element );
+  erode( s, s, element );
 
 
   cv::Mat element2 = getStructuringElement( cv::MORPH_RECT,
       cv::Size( 2*dilation_size + 1, 2*dilation_size+1 ),
       cv::Point( dilation_size, dilation_size ) );
   /// Apply the dilation operation
-  dilate( inputROI, inputROI, element2 );
+  dilate( s, s, element2 );
 
 
   /**
    * Canny Edge
    */
-
+/*
   int edgeThresh = 1;
   int lowThreshold = 20;
   int const max_lowThreshold = 100;
@@ -148,12 +259,66 @@ const vector<SignPlace> SignDetector::detect(const cv::Mat inputImage, const cv:
   cvtColor( inputROI, bw, CV_BGR2GRAY );
   morphThinning(bw);
   cv::threshold(bw, bw, 50,255,cv::THRESH_BINARY);
+*/
 
-  cv::imshow("signdetector", bw);
+
+
+  cv::Mat grayS;
+  cvtColor( s, grayS, CV_BGR2GRAY );
+
+  findAndDrawContours(cv::Scalar(0,255,0), grayS, s);
+
+  cv::bitwise_not(grayS, grayS);
+
+
+  erode( grayS, grayS, element );
+  dilate( grayS, grayS, element2 );
+
+
+  //cv::imshow("inverted", grayS);
+
+  findAndDrawContours(cv::Scalar(0,0,255), grayS, s);
+
+
+  cv::imshow("s_thresh_morph", s);
+
+
   cv::waitKey(100000);
 
   return vector<SignPlace>();
 }
+
+
+void SignDetector::findAndDrawContours(const cv::Scalar& color, cv::Mat grayS, cv::Mat targetDraw) {
+  vector< vector<cv::Point> > contours;
+  cv::findContours(grayS, contours, CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE);
+
+  int drawnContours = 0;
+  for (const vector<cv::Point>& contour : contours) {
+
+
+    cv::Point upperLeft(10000, 100000); //todo this may has to be increased if training pictures get larger
+    cv::Point lowerRight(0, 0);
+
+    for (const cv::Point& pnt : contour) {
+      upperLeft.y = std::min(upperLeft.y, pnt.y);
+      upperLeft.x = std::min(upperLeft.x, pnt.x);
+      lowerRight.y = std::max(lowerRight.y, pnt.y);
+      lowerRight.x = std::max(lowerRight.x, pnt.x);
+    }
+
+    cv::Rect contourOutline(upperLeft, lowerRight);
+    if (contourOutline.width < 20 || contourOutline.height < 20) {
+      continue;
+    }
+
+
+
+    cv::rectangle(targetDraw,upperLeft, lowerRight, color,1);
+  }
+
+}
+
 
 
 void SignDetector::morphThinning(cv::Mat &img) const {

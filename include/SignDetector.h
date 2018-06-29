@@ -15,9 +15,11 @@ public:
   SignDetector();
   virtual ~SignDetector();
 
-  const vector<SignPlace> detect(const cv::Mat input,  const cv::Rect& areaWithSigns) const;
+  const vector<SignPlace> detect(const cv::Mat input,  const cv::Rect& areaWithSigns);
 private:
   void morphThinning(cv::Mat &img) const;
+
+  void findAndDrawContours(const cv::Scalar& color, cv::Mat grayS, cv::Mat targetDraw);
 };
 
 #endif //SIGN_DETECC_SIGNDETECTOR_H
