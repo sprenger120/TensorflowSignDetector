@@ -9,21 +9,25 @@
 //0.2:  80-120%
 #define SIGN_PLACE_MAX_AREA_DIFFERENCE 0.5f
 
-const cv::Point_<int>& SignPlace::getUpperLeft() const
-{
+const cv::Point_<int> &SignPlace::getUpperLeft() const {
   return upperLeft;
 }
-const cv::Point_<int>& SignPlace::getLowerRight() const
-{
+const cv::Point_<int> &SignPlace::getLowerRight() const {
   return lowerRight;
 }
-const int SignPlace::getSignId() const
-{
+cv::Point_<int> SignPlace::getLowerLeft() const {
+  cv::Point_<int> result = {upperLeft.x, lowerRight.y};
+  return result;
+}
+cv::Point_<int> SignPlace::getUpperRight() const {
+  cv::Point_<int> result = {lowerRight.x, upperLeft.y};
+  return result;
+}
+const int SignPlace::getSignId() const {
   return signId;
 }
-SignPlace::SignPlace(const cv::Point& upperLeft, const cv::Point& lowerRight, const int signId)
-    :upperLeft(upperLeft), lowerRight(lowerRight), signId(signId)
-{
+SignPlace::SignPlace(const cv::Point &upperLeft, const cv::Point &lowerRight, const int signId)
+    : upperLeft(upperLeft), lowerRight(lowerRight), signId(signId) {
   //coordinate sanity check
   if (upperLeft.y > lowerRight.y || upperLeft.x > lowerRight.x) {
     throw "illegal coordinates";
@@ -33,14 +37,11 @@ SignPlace::SignPlace(const cv::Point& upperLeft, const cv::Point& lowerRight, co
   area = getArea();
 }
 
-
-const float SignPlace::getArea() const
-{
- return (lowerRight.x - upperLeft.x) * (lowerRight.y - upperLeft.y);
+const float SignPlace::getArea() const {
+  return (lowerRight.x - upperLeft.x) * (lowerRight.y - upperLeft.y);
 }
 
-const bool SignPlace::isOverlappingEnough(const SignPlace& givenSignPl) const
-{
+const bool SignPlace::isOverlappingEnough(const SignPlace &givenSignPl) const {
   //given signplace must cover at least SIGN_PLACE_MIN_OVERLAPPING_PERCENTAGE % of this
   //signplaces area
 
@@ -54,8 +55,7 @@ const bool SignPlace::isOverlappingEnough(const SignPlace& givenSignPl) const
       lowerRight.y < givenSignPl.upperLeft.y || //given is below
       upperLeft.x > givenSignPl.lowerRight.x || //given is left
       lowerRight.x < givenSignPl.upperLeft.x //given is right
-      )
-  {
+      ) {
     return false;
   }
 
@@ -63,8 +63,7 @@ const bool SignPlace::isOverlappingEnough(const SignPlace& givenSignPl) const
   //small (<1) areaQuotient - given is larger, great (>1) quotient - given is smaller
   //see SIGN_PLACE_MAX_AREA_DIFFERENCE for more information
   const float areaQuotient = area / givenSignPl.area;
-  if (areaQuotient < 1.0f-SIGN_PLACE_MAX_AREA_DIFFERENCE || areaQuotient > 1.0f+SIGN_PLACE_MAX_AREA_DIFFERENCE)
-  {
+  if (areaQuotient < 1.0f - SIGN_PLACE_MAX_AREA_DIFFERENCE || areaQuotient > 1.0f + SIGN_PLACE_MAX_AREA_DIFFERENCE) {
     return false;
   }
 
@@ -90,10 +89,8 @@ const bool SignPlace::isOverlappingEnough(const SignPlace& givenSignPl) const
   return unionArea.area / area > SIGN_PLACE_MIN_OVERLAPPING_PERCENTAGE;
 }
 
-
-void SignPlace::drawOutline(cv::Mat pic,const cv::Scalar& color) const
-{
-  cv::rectangle(pic,upperLeft, lowerRight, color,2);
-  cv::putText(pic, std::to_string(signId), lowerRight + cv::Point(10,10),
-      cv::FONT_HERSHEY_PLAIN, 3, color, 3);
+void SignPlace::drawOutline(cv::Mat pic, const cv::Scalar &color) const {
+  cv::rectangle(pic, upperLeft, lowerRight, color, 2);
+  cv::putText(pic, std::to_string(signId), lowerRight + cv::Point(10, 10),
+              cv::FONT_HERSHEY_PLAIN, 3, color, 3);
 }

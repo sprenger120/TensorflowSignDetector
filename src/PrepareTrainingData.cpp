@@ -66,7 +66,7 @@ void CropWithStatistics(TrainingData::TrainingData td) {
       ss << "training_data/croppedSigns/sign_id=" << rec.getSignId() << "_no=" << sign_count[rec.getSignId()]++
          << ".png";
       imwrite(ss.str(), cropped);
-      positive_description_file << ss.str() << "  " << rec.getSignId() << "  " << "0 0 " << sign_width << " "
+      positive_description_file << ss.str() << " " << "1" << " " << "0 0 " << sign_width << " "
                                 << sign_height << std::endl;
     }
   }
@@ -101,7 +101,8 @@ void GenerateBackgroundSamples(TrainingData::TrainingData td,
         auto left = (unsigned int) std::round(left_rd(d));
         sample_rect = cv::Rect(left, top, sample_width, sample_height);
         for (auto &sign : trData.signs) {
-          if (sample_rect.contains(sign.getLowerRight()) || sample_rect.contains(sign.getUpperLeft())) {
+          if (sample_rect.contains(sign.getLowerRight()) || sample_rect.contains(sign.getUpperLeft())
+              || sample_rect.contains(sign.getLowerLeft()) || sample_rect.contains(sign.getUpperRight())) {
             intersects_sign = true;
             continue;
           }
@@ -120,8 +121,8 @@ void GenerateBackgroundSamples(TrainingData::TrainingData td,
 
 int main() {
   TrainingData::TrainingData trainingData;
-  CropWithStatistics(trainingData);
-  //GenerateBackgroundSamples(trainingData, 5, 44, 43);
+  //CropWithStatistics(trainingData);
+  GenerateBackgroundSamples(trainingData, 20, 100, 100);
   cv::destroyAllWindows();
   return 0;
 }

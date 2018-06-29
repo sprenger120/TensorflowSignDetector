@@ -13,6 +13,8 @@ public:
   SignPlace(const cv::Point& upperLeft, const cv::Point& lowerRight, const int signId);
   const cv::Point& getUpperLeft() const;
   const cv::Point& getLowerRight() const;
+  cv::Point getLowerLeft() const;
+  cv::Point getUpperRight() const;
   const int getSignId() const;
 
   /**
@@ -46,6 +48,8 @@ private:
    */
   const cv::Point upperLeft;
   const cv::Point lowerRight;
+  const cv::Point upperRight;
+  const cv::Point lowerLeft;
   const int signId;
   float area;
 
