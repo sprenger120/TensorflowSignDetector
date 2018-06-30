@@ -208,6 +208,7 @@ const vector<SignPlace> SignIdentifier::detect(const cv::Mat inputImage, const c
  /*
 */
   //50 vor s threshold seems to remove all the street
+  //55 for halv the false positives,  50 for better detection rate
   cv::threshold(s, s, 50, 255,CV_THRESH_BINARY);
 /*
   cv::imshow("s_thresh", s);
@@ -218,28 +219,29 @@ const vector<SignPlace> SignIdentifier::detect(const cv::Mat inputImage, const c
    * Dilate / Erode
    */
 
-  int erosion_elem = 1;
+
   int erosion_size = 1;
-  int dilation_elem = 1;
   int dilation_size = 1;
-  int const max_elem = 2;
-  int const max_kernel_size = 21;
-
-
 
   cv::Mat element = cv::getStructuringElement( cv::MORPH_RECT,
           cv::Size( 2*erosion_size + 1, 2*erosion_size+1 ),
           cv::Point( erosion_size, erosion_size ) );
 
   /// Apply the erosion operation
-  erode( s, s, element );
+
 
 
   cv::Mat element2 = getStructuringElement( cv::MORPH_RECT,
       cv::Size( 2*dilation_size + 1, 2*dilation_size+1 ),
       cv::Point( dilation_size, dilation_size ) );
   /// Apply the dilation operation
+
+
+  erode( s, s, element );
   dilate( s, s, element2 );
+
+
+
 
 
   /**
@@ -281,9 +283,6 @@ const vector<SignPlace> SignIdentifier::detect(const cv::Mat inputImage, const c
       if (pixel > 0) {
         cv::Rect filledRect;
         cv::floodFill(grayS, cv::Point(x,y), cv::Scalar(0), &filledRect);
-
-
-
         output.push_back(filledRect);
         //std::cout<<"filling\n";
       }
@@ -326,29 +325,24 @@ const vector<SignPlace> SignIdentifier::detect(const cv::Mat inputImage, const c
   dilate( grayS, grayS, element2 );
 */
 
-
-
-
 //  cv::imshow("inverted", grayS);
 /*
   auto negativeout = findAndDrawContours(cv::Scalar(0,0,255), grayS, s);
   output.insert(output.end(), negativeout.begin(), negativeout.end());
 */
 
-
-
   vector<SignPlace> outSigns;
 
   for (const cv::Rect& rec: output) {
-    if (rec.width < 20 || rec.height < 20) {
+    //smallest sign is 22x22
+    if (rec.width < 15 || rec.height < 15) {
       continue;
     }
-  /*
-    if (rec.width > 100 || rec.height > 100) {
+
+    //biggest sign is 127x128
+    if (rec.width > 200 || rec.height > 200) {
       continue;
-    }*/
-
-
+    }
 
     cv::Point ul(rec.x+roiOffset.x,rec.y+roiOffset.y);
     cv::Point lr(rec.x+roiOffset.x+rec.width,rec.y+roiOffset.y+rec.height);
