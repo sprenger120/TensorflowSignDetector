@@ -15,9 +15,8 @@ using std::stringstream;
 #define TRAINING_DATA_TRAINING_PICTURES_PATH "training_data/png/"
 
 namespace TrainingData {
-TrainingData::TrainingData()
-{
- // gatherTrainingDataFiles();
+TrainingData::TrainingData() {
+  // gatherTrainingDataFiles();
   _trainingData = loadTrainingData();
   _perSignOccurance = countSignOccurances();
   _areaWithSigns = determineAreaWithSignsAndMaxSignSize();
@@ -31,11 +30,11 @@ TrainingData::TrainingData()
 
   //print out 10 most occuring signs
   SignOccuranceArray signOccCopy = _perSignOccurance;
-  for (char i = 0; i<20; ++i) {
+  for (char i = 0; i < 20; ++i) {
     size_t biggestID = 0;
 
-    for (size_t indx = 1; indx<signOccCopy.size(); ++indx) {
-      if (signOccCopy[biggestID].cnt<signOccCopy[indx].cnt) {
+    for (size_t indx = 1; indx < signOccCopy.size(); ++indx) {
+      if (signOccCopy[biggestID].cnt < signOccCopy[indx].cnt) {
         biggestID = indx;
       }
     }
@@ -46,11 +45,10 @@ TrainingData::TrainingData()
 
 }
 
-TrainingData::~TrainingData()
-{
+TrainingData::~TrainingData() {
 }
-vector<TrainingData::trainingDataInfo> TrainingData::loadTrainingData() const
-{
+
+vector<TrainingData::trainingDataInfo> TrainingData::loadTrainingData() const {
   vector<trainingDataInfo> trainingData;
 
   //read csv file
@@ -78,20 +76,20 @@ vector<TrainingData::trainingDataInfo> TrainingData::loadTrainingData() const
     //have to do this because there might me multiple entries for the same file
     //signalling that there are multiple signs in the picture
     //lineBuffer is affectedFile currently
-    trainingDataInfo* ptrAffectedFile = nullptr;
-    for (trainingDataInfo& trData : trainingData) {
-      if (trData.filename==lineBuffer) {
+    trainingDataInfo *ptrAffectedFile = nullptr;
+    for (trainingDataInfo &trData : trainingData) {
+      if (trData.filename == lineBuffer) {
         ptrAffectedFile = &trData;
         break;
       }
     }
-    if (ptrAffectedFile==nullptr) {
+    if (ptrAffectedFile == nullptr) {
       //create new entry, noone found
       trainingDataInfo trData;
       trData.filename = lineBuffer;
       trainingData.push_back(trData);
       //trainingData vector might create a copy so we get the ptr out of it
-      ptrAffectedFile = &trainingData[trainingData.size()-1];
+      ptrAffectedFile = &trainingData[trainingData.size() - 1];
     }
 
     cv::Point upperLeft;
@@ -140,28 +138,28 @@ vector<TrainingData::trainingDataInfo> TrainingData::loadTrainingData() const
   }*/
   return trainingData;
 }
-SignOccuranceArray TrainingData::countSignOccurances() const
-{
+
+SignOccuranceArray TrainingData::countSignOccurances() const {
   SignOccuranceArray occurances;
-  for (const trainingDataInfo& tr : _trainingData) {
-    for (const SignPlace& sign : tr.signs) {
+  for (const trainingDataInfo &tr : _trainingData) {
+    for (const SignPlace &sign : tr.signs) {
       //if first occurance of sign, increase occurance size
-      if (sign.getSignId()+1>=occurances.size()) {
-        occurances.resize((size_t) sign.getSignId()+1);
+      if (sign.getSignId() + 1 >= occurances.size()) {
+        occurances.resize((size_t) sign.getSignId() + 1);
       }
       occurances[sign.getSignId()].cnt++;
     }
   }
   return occurances;
 }
-cv::Rect TrainingData::determineAreaWithSignsAndMaxSignSize() const
-{
+
+cv::Rect TrainingData::determineAreaWithSignsAndMaxSignSize() const {
   //todo
   cv::Point upperLeft(10000, 100000); //todo this may has to be increased if training pictures get larger
   cv::Point lowerRight(0, 0);
 
-  for (const trainingDataInfo& tr : _trainingData) {
-    for (const SignPlace& sign : tr.signs) {
+  for (const trainingDataInfo &tr : _trainingData) {
+    for (const SignPlace &sign : tr.signs) {
       upperLeft.y = std::min(upperLeft.y, sign.getUpperLeft().y);
       upperLeft.x = std::min(upperLeft.x, sign.getUpperLeft().x);
       lowerRight.y = std::max(lowerRight.y, sign.getLowerRight().y);
@@ -172,11 +170,10 @@ cv::Rect TrainingData::determineAreaWithSignsAndMaxSignSize() const
 }
 
 
-
-const cv::Rect& TrainingData::getAreaWithSigns() const
-{
+const cv::Rect &TrainingData::getAreaWithSigns() const {
   return _areaWithSigns;
 }
+
 /*
 static int __fileCallback(const char* fpath, const struct stat* sb, int typeflag)
 {
@@ -209,42 +206,58 @@ void TrainingData::gatherTrainingDataFiles() const
 }
 */
 
-void TrainingData::evaluateSignDetector(bool quick) const
-{
+void TrainingData::evaluateSignDetector(bool quick) const {
   int processedTrainingDataEntries = 0;
-  int signCountTotal = 0;
-  int correctlySpottedSigns = 0;
-  int signDetectedWhereNoneIs = 0;
-  SignOccuranceArray correctlyKlassifiedSigns(_perSignOccurance.size());
-
+  const int maxTrainingDataEntriesToProcess = 50;
   SignIdentifier detector;
 
-  for(const trainingDataInfo& trainingEntry : _trainingData) {
-    cv::Mat trainingPicture = cv::imread(TRAINING_DATA_TRAINING_PICTURES_PATH +trainingEntry.filename);
-    if (trainingPicture.data==nullptr) {
+  int signsTotal = 0;
+  int signsDetected = 0;
+
+  for (const trainingDataInfo &trainingEntry : _trainingData) {
+    cv::Mat trainingPicture = cv::imread(TRAINING_DATA_TRAINING_PICTURES_PATH + trainingEntry.filename);
+    if (trainingPicture.data == nullptr) {
       cout << "Unable to load picture for training data entry '" << trainingEntry.filename << "'\n";
       continue;
     }
 
     ++processedTrainingDataEntries;
-    signCountTotal += trainingEntry.signs.size();
+    if (processedTrainingDataEntries > maxTrainingDataEntriesToProcess) {
+      break;
+    }
 
     const vector<SignPlace> detectedSigns = detector.detect(trainingPicture, _areaWithSigns);
 
+    if(!quick) {
+      //draw training signs outlines, pink
+      for (const SignPlace &trainingSign : trainingEntry.signs) {
+        trainingSign.drawOutline(trainingPicture, cv::Scalar(255, 0, 255));
+      }
+
+    }
+
+    //assuming no double signplaces for the same sign because those will be counted
+    //as detectedWhereNoneIs
+    vector<SignPlace> signsInTrainingExample = trainingEntry.signs;
+    signsTotal+=signsInTrainingExample.size();
+
+    int signDetectedWhereNoneIs = 0;
     //cross check detected signs with training data
     //todo filter out multiple detection of same trainingSign
-    for (const SignPlace& detecSign :  detectedSigns) {
+    for (const SignPlace &detecSign :  detectedSigns) {
       bool matched = false;
 
-      for (const SignPlace& trainingSign : trainingEntry.signs) {
-        if (trainingSign.isOverlappingEnough(detecSign)) {
+
+      for (size_t i = 0; i < signsInTrainingExample.size(); ++i) {
+        if (signsInTrainingExample[i].isOverlappingEnough(detecSign)) {
+          signsInTrainingExample.erase(signsInTrainingExample.begin() + i);
           matched = true;
           break;
         }
       }
 
       if (matched) {
-        correctlySpottedSigns++;
+        signsDetected++;
         //correctly spotted sign will be drawn in green
         if (!quick) {
           detecSign.drawOutline(trainingPicture, cv::Scalar(0, 255, 0));
@@ -258,32 +271,37 @@ void TrainingData::evaluateSignDetector(bool quick) const
       }
     }
 
-
+    cout << "Signs in example " << trainingEntry.signs.size()
+         << "  Identifier missed " << signsInTrainingExample.size()
+         << " signs  | Detected " << signDetectedWhereNoneIs <<
+         "  where none are \n";
 
     if (!quick) {
       //draw area with signs outline
-      cv::rectangle(trainingPicture, _areaWithSigns, cv::Scalar(255,0,0), 2);
+      //cv::rectangle(trainingPicture, _areaWithSigns, cv::Scalar(255, 0, 0), 2);
 
-      //draw training signs outlines, pink
-      for (const SignPlace& trainingSign : trainingEntry.signs) {
-       trainingSign.drawOutline(trainingPicture, cv::Scalar(255,0,255));
-      }
 
       //show with imgview
       cv::imshow("SignDetecc", trainingPicture);
       // waits two seconds, kills programm if esc was pressed
-      for(int i=0;i<20;++i){
-        int k = cv::waitKey(100);
-        if(k==27){
+      while(true) {
+        int k = cv::waitKey(20);
+        if (k == 27) {
           cv::destroyAllWindows();
           return;
         }
+        if (k == 32) {
+          break;
+        }
       }
-
     }
-  }
-}
 
+
+  }
+
+  cout<<"Identifier detect rate: "<< ((signsDetected*100) / (signsTotal))
+      <<" %\n Analyzed over "<<processedTrainingDataEntries<< " entries\n";
+}
 
 
 }

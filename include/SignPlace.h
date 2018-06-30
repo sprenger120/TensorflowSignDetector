@@ -14,6 +14,7 @@ public:
   const cv::Point& getUpperLeft() const;
   const cv::Point& getLowerRight() const;
   const int getSignId() const;
+  SignPlace& operator=(const SignPlace&);
 
   /**
    * Evaluates if the given SignPlace is overlapping enough
@@ -44,9 +45,9 @@ private:
    *    ^
    *    lowerRight, right line
    */
-  const cv::Point upperLeft;
-  const cv::Point lowerRight;
-  const int signId;
+  cv::Point upperLeft;
+  cv::Point lowerRight;
+  int signId;
   float area;
 
   friend SignPlaceTest;

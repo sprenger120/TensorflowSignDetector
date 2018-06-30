@@ -15,7 +15,7 @@ public:
   SignIdentifier();
   virtual ~SignIdentifier();
 
-  const vector<cv::Rect> detect(const cv::Mat input,  const cv::Rect& areaWithSigns);
+  const vector<SignPlace> detect(const cv::Mat input,  const cv::Rect& areaWithSigns);
 private:
   void morphThinning(cv::Mat &img) const;
 

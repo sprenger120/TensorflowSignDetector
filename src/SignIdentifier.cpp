@@ -46,10 +46,12 @@ SignIdentifier::~SignIdentifier()
  *
  */
 
-const vector<cv::Rect> SignIdentifier::detect(const cv::Mat inputImage, const cv::Rect& areaWithSigns)
+const vector<SignPlace> SignIdentifier::detect(const cv::Mat inputImage, const cv::Rect& areaWithSigns)
 {
   //cropp of area with no sign, leaving a region of interest
-  cv::Mat inputROI(inputImage, areaWithSigns);
+  cv::Mat inputROIunedited(inputImage, areaWithSigns);
+  cv::Mat inputROI;
+  inputROIunedited.copyTo(inputROI);
 
   //all coordinates from inputROI are no longer aligned with the original image
   //we have to add some offset to the coordinates to get back to the original ones
@@ -90,9 +92,10 @@ const vector<cv::Rect> SignIdentifier::detect(const cv::Mat inputImage, const cv
   //
   //
 
-  cv::imshow("original", inputROI);
+  /*cv::imshow("original", inputROI);
   cv::waitKey(10);
-/*
+*/
+   /*
   cv::Mat g;
   inputROI.copyTo(g);
 
@@ -195,12 +198,14 @@ const vector<cv::Rect> SignIdentifier::detect(const cv::Mat inputImage, const cv
      }
   }
 
-  cv::imshow("H", h);
+/*  cv::imshow("H", h);
   cv::waitKey(10);
   cv::imshow("s", s);
   cv::waitKey(10);
   cv::imshow("s_uncropped", s_uncropped);
-/*
+*/
+
+ /*
 */
   //50 vor s threshold seems to remove all the street
   cv::threshold(s, s, 50, 255,CV_THRESH_BINARY);
@@ -264,7 +269,9 @@ const vector<cv::Rect> SignIdentifier::detect(const cv::Mat inputImage, const cv
   cvtColor( s, grayS, CV_BGR2GRAY );
 
 
-  findAndDrawContours(cv::Scalar(0,255,0), grayS, s);
+  auto positiveout = findAndDrawContours(cv::Scalar(0,255,0), grayS, s);
+  output.insert(output.end(), positiveout.begin(), positiveout.end());
+
 
   cv::bitwise_not(grayS, grayS);
 
@@ -273,17 +280,37 @@ const vector<cv::Rect> SignIdentifier::detect(const cv::Mat inputImage, const cv
   dilate( grayS, grayS, element2 );
 
 
-  //cv::imshow("inverted", grayS);
+  cv::imshow("inverted", grayS);
 
-  findAndDrawContours(cv::Scalar(0,0,255), grayS, s);
+  auto negativeout = findAndDrawContours(cv::Scalar(0,0,255), grayS, s);
+  output.insert(output.end(), negativeout.begin(), negativeout.end());
+
+  vector<SignPlace> outSigns;
+
+  for (const cv::Rect& rec: output) {
+    if (rec.width < 20 || rec.height < 20) {
+      continue;
+    }
+  /*
+    if (rec.width > 100 || rec.height > 100) {
+      continue;
+    }*/
+
+
+
+    cv::Point ul(rec.x+roiOffset.x,rec.y+roiOffset.y);
+    cv::Point lr(rec.x+roiOffset.x+rec.width,rec.y+roiOffset.y+rec.height);
+
+    outSigns.emplace_back(ul, lr, -1);
+  }
 
 
   cv::imshow("s_thresh_morph", s);
-
-
   cv::waitKey(100000);
 
-  return vector<SignPlace>();
+
+
+  return outSigns;
 }
 
 
@@ -303,14 +330,14 @@ vector<cv::Rect> SignIdentifier::findAndDrawContours(const cv::Scalar& color, cv
       lowerRight.y = std::max(lowerRight.y, pnt.y);
       lowerRight.x = std::max(lowerRight.x, pnt.x);
     }
-
+  //  cv::Rect contourOutline(upperLeft, lowerRight);
     output.emplace_back(upperLeft, lowerRight);
 
-    /*if (contourOutline.width < 20 || contourOutline.height < 20) {
+  /*  if (contourOutline.width < 20 || contourOutline.height < 20) {
       continue;
     }
     cv::rectangle(targetDraw,upperLeft, lowerRight, color,1);
-    */
+*/
   }
   return output;
 }

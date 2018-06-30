@@ -41,6 +41,12 @@ const float SignPlace::getArea() const
 
 const bool SignPlace::isOverlappingEnough(const SignPlace& givenSignPl) const
 {
+  cv::Rect thisRec(upperLeft, lowerRight);
+  cv::Rect otherRec(givenSignPl.upperLeft, givenSignPl.lowerRight);
+
+  cv::Rect unionRect = thisRec & otherRec;
+
+
   //given signplace must cover at least SIGN_PLACE_MIN_OVERLAPPING_PERCENTAGE % of this
   //signplaces area
 
@@ -50,14 +56,14 @@ const bool SignPlace::isOverlappingEnough(const SignPlace& givenSignPl) const
   // \/ y
 
   //reject - union is empty
-  if (upperLeft.y > givenSignPl.lowerRight.y || //given is above
+  /*if (upperLeft.y > givenSignPl.lowerRight.y || //given is above
       lowerRight.y < givenSignPl.upperLeft.y || //given is below
       upperLeft.x > givenSignPl.lowerRight.x || //given is left
       lowerRight.x < givenSignPl.upperLeft.x //given is right
       )
   {
     return false;
-  }
+  }*/
 
   //reject - targetSign area too big or too small
   //small (<1) areaQuotient - given is larger, great (>1) quotient - given is smaller
@@ -67,7 +73,7 @@ const bool SignPlace::isOverlappingEnough(const SignPlace& givenSignPl) const
   {
     return false;
   }
-
+/*
   cv::Point unionUpperLeft;
   cv::Point unionLowerRight;
 
@@ -84,16 +90,32 @@ const bool SignPlace::isOverlappingEnough(const SignPlace& givenSignPl) const
 
   //right line
   unionLowerRight.x = std::min(lowerRight.x, givenSignPl.lowerRight.x);
+*/
+  //SignPlace unionArea(unionUpperLeft, unionLowerRight, 0);
 
-  SignPlace unionArea(unionUpperLeft, unionLowerRight, 0);
+
   //union area can't exceed this signPlace's area
-  return unionArea.area / area > SIGN_PLACE_MIN_OVERLAPPING_PERCENTAGE;
+  float unionArea = (unionRect.width*unionRect.height);
+  if (unionArea < 0.1) {
+    return false;
+  }
+  float areaQuotient1 = unionArea/ area;
+  return areaQuotient1 > SIGN_PLACE_MIN_OVERLAPPING_PERCENTAGE &&
+      areaQuotient1 < 1+SIGN_PLACE_MIN_OVERLAPPING_PERCENTAGE;
 }
 
 
 void SignPlace::drawOutline(cv::Mat pic,const cv::Scalar& color) const
 {
   cv::rectangle(pic,upperLeft, lowerRight, color,2);
-  cv::putText(pic, std::to_string(signId), lowerRight + cv::Point(10,10),
-      cv::FONT_HERSHEY_PLAIN, 3, color, 3);
+ // cv::putText(pic, std::to_string(signId), lowerRight + cv::Point(10,10),
+  //    cv::FONT_HERSHEY_PLAIN, 3, color, 3);
+}
+
+
+SignPlace& SignPlace::operator=(const SignPlace& other) {
+  upperLeft = other.upperLeft;
+  lowerRight = other.lowerRight;
+  signId = other.signId;
+  area = other.area;
 }
