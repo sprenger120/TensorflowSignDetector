@@ -125,7 +125,7 @@ const vector<SignPlace> SignIdentifier::detect(const cv::Mat inputImage, const c
 */
 
 
-  cv::blur(inputROI,inputROI, cv::Size(4,4));
+  //cv::blur(inputROI,inputROI, cv::Size(3,3));
 
   //cv::equalizeHist(equalized,equalized);
   cvtColor( inputROI, inputROI, CV_BGR2HSV );
@@ -218,9 +218,9 @@ const vector<SignPlace> SignIdentifier::detect(const cv::Mat inputImage, const c
    * Dilate / Erode
    */
 
-  int erosion_elem = 0;
+  int erosion_elem = 1;
   int erosion_size = 1;
-  int dilation_elem = 0;
+  int dilation_elem = 1;
   int dilation_size = 1;
   int const max_elem = 2;
   int const max_kernel_size = 21;
@@ -265,25 +265,77 @@ const vector<SignPlace> SignIdentifier::detect(const cv::Mat inputImage, const c
 
   vector<cv::Rect> output;
 
-  cv::Mat grayS;
+  cv::Mat grayS, grayS_;
   cvtColor( s, grayS, CV_BGR2GRAY );
+  grayS.copyTo(grayS_);
+
+ /* cv::imshow("grays", grayS);
+  cv::waitKey(100);
+*/
+
+  for (int y = 0;y<grayS.rows; ++y) {
+    for (int x = 0; x < grayS.cols; ++x) {
+      //char histAdjPixel = equalized.at<char>(y,x);
+      uchar pixel = grayS.at<uchar>(y, x);
+
+      if (pixel > 0) {
+        cv::Rect filledRect;
+        cv::floodFill(grayS, cv::Point(x,y), cv::Scalar(0), &filledRect);
 
 
-  auto positiveout = findAndDrawContours(cv::Scalar(0,255,0), grayS, s);
-  output.insert(output.end(), positiveout.begin(), positiveout.end());
+
+        output.push_back(filledRect);
+        //std::cout<<"filling\n";
+      }
 
 
-  cv::bitwise_not(grayS, grayS);
+    }
+  }
 
 
-  erode( grayS, grayS, element );
+
+  //auto positiveout = findAndDrawContours(cv::Scalar(0,255,0), grayS, s);
+  //output.insert(output.end(), positiveout.begin(), positiveout.end());
+
+
+  cv::bitwise_not(grayS_, grayS_);
+
+  for (int y = 0;y<grayS.rows; ++y) {
+    for (int x = 0; x < grayS.cols; ++x) {
+      //char histAdjPixel = equalized.at<char>(y,x);
+      uchar pixel = grayS_.at<uchar>(y, x);
+
+      if (pixel > 0) {
+        cv::Rect filledRect;
+        cv::floodFill(grayS_, cv::Point(x,y), cv::Scalar(0), &filledRect);
+
+        cv::Point enlargementFactor(double(filledRect.width)*0.2, double(filledRect.height)*0.2);
+        cv::Rect filledRect_(filledRect.tl() - enlargementFactor, filledRect.br()+enlargementFactor);
+
+
+        output.push_back(filledRect_);
+       // std::cout<<"filling\n";
+      }
+
+
+    }
+  }
+
+
+  /*erode( grayS, grayS, element );
   dilate( grayS, grayS, element2 );
+*/
 
 
-  cv::imshow("inverted", grayS);
 
+
+//  cv::imshow("inverted", grayS);
+/*
   auto negativeout = findAndDrawContours(cv::Scalar(0,0,255), grayS, s);
   output.insert(output.end(), negativeout.begin(), negativeout.end());
+*/
+
+
 
   vector<SignPlace> outSigns;
 
@@ -305,9 +357,9 @@ const vector<SignPlace> SignIdentifier::detect(const cv::Mat inputImage, const c
   }
 
 
-  cv::imshow("s_thresh_morph", s);
+  /*cv::imshow("s_thresh_morph", s);
   cv::waitKey(100000);
-
+*/
 
 
   return outSigns;

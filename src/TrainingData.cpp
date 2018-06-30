@@ -208,7 +208,7 @@ void TrainingData::gatherTrainingDataFiles() const
 
 void TrainingData::evaluateSignDetector(bool quick) const {
   int processedTrainingDataEntries = 0;
-  const int maxTrainingDataEntriesToProcess = 50;
+  const int maxTrainingDataEntriesToProcess = 100;
   SignIdentifier detector;
 
   int signsTotal = 0;
