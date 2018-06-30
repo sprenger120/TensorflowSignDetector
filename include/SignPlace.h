@@ -11,15 +11,17 @@ class SignPlaceTest;
 class SignPlace {
 public:
   SignPlace(const cv::Point& upperLeft, const cv::Point& lowerRight, const int signId);
-  const cv::Point& getUpperLeft() const;
-  const cv::Point& getLowerRight() const;
+  SignPlace(const cv::Rect& r, const int signId);
+
+
   const int getSignId() const;
   SignPlace& operator=(const SignPlace&);
+  const cv::Rect& getSign() const;
 
   /**
    * Evaluates if the given SignPlace is overlapping enough
    * (Set by SIGN_PLACE_MIN_OVERLAPPING_PERCENTAGE) with this SignPlace.
-   * Primarily used in detected sign evaluation.
+   * Primarily used in identification sign evaluation.
    * Doesn't compare signIds
    * @return true if there is enough overlap
    */
@@ -30,25 +32,10 @@ public:
    * @param pic
    * @param color
    */
-  void drawOutline(cv::Mat pic, const cv::Scalar& color) const;
+  void drawOutline(cv::Mat pic, const cv::Scalar& color, bool drawSignID = false) const;
 private:
-  const float getArea() const;
-
-  /*
-   *
-   upperLeft, left line
-   \/
-   ****** <--- top line
-   *    *
-   *    *
-   ****** <--- lower line
-   *    ^
-   *    lowerRight, right line
-   */
-  cv::Point upperLeft;
-  cv::Point lowerRight;
+  cv::Rect signPosition;
   int signId;
-  float area;
 
   friend SignPlaceTest;
 };
