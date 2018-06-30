@@ -9,113 +9,73 @@
 //0.2:  80-120%
 #define SIGN_PLACE_MAX_AREA_DIFFERENCE 0.5f
 
-const cv::Point_<int>& SignPlace::getUpperLeft() const
-{
-  return upperLeft;
-}
-const cv::Point_<int>& SignPlace::getLowerRight() const
-{
-  return lowerRight;
-}
-const int SignPlace::getSignId() const
-{
-  return signId;
-}
+
 SignPlace::SignPlace(const cv::Point& upperLeft, const cv::Point& lowerRight, const int signId)
-    :upperLeft(upperLeft), lowerRight(lowerRight), signId(signId)
+    :signPosition(upperLeft, lowerRight), signId(signId)
 {
   //coordinate sanity check
   if (upperLeft.y > lowerRight.y || upperLeft.x > lowerRight.x) {
     throw "illegal coordinates";
   }
-
-  //precalculate ara
-  area = getArea();
 }
-
-
-const float SignPlace::getArea() const
+SignPlace::SignPlace(const cv::Rect& r, const int signId) :
+signPosition(signPosition), signId(signId)
 {
- return (lowerRight.x - upperLeft.x) * (lowerRight.y - upperLeft.y);
 }
+
+SignPlace& SignPlace::operator=(const SignPlace& other) {
+  signPosition = other.signPosition;
+  signId = other.signId;
+}
+
 
 const bool SignPlace::isOverlappingEnough(const SignPlace& givenSignPl) const
 {
-  cv::Rect thisRec(upperLeft, lowerRight);
-  cv::Rect otherRec(givenSignPl.upperLeft, givenSignPl.lowerRight);
+  //when given signPlace is so big that it completely encloses this signPlace or in reverse (signPlace encloses
+  //given signPlace) we reject
+  //Although overlap is required for the klassification step, excess overlap will cause this step to fail
 
-  cv::Rect unionRect = thisRec & otherRec;
-
-
-  //given signplace must cover at least SIGN_PLACE_MIN_OVERLAPPING_PERCENTAGE % of this
-  //signplaces area
-
-  // ---> x
-  // |
-  // |
-  // \/ y
-
-  //reject - union is empty
-  /*if (upperLeft.y > givenSignPl.lowerRight.y || //given is above
-      lowerRight.y < givenSignPl.upperLeft.y || //given is below
-      upperLeft.x > givenSignPl.lowerRight.x || //given is left
-      lowerRight.x < givenSignPl.upperLeft.x //given is right
-      )
-  {
-    return false;
-  }*/
-
-  //reject - targetSign area too big or too small
   //small (<1) areaQuotient - given is larger, great (>1) quotient - given is smaller
   //see SIGN_PLACE_MAX_AREA_DIFFERENCE for more information
-  const float areaQuotient = area / givenSignPl.area;
+  const float areaQuotient = (float)  signPosition.area() / (float) givenSignPl.signPosition.area();
   if (areaQuotient < 1.0f-SIGN_PLACE_MAX_AREA_DIFFERENCE || areaQuotient > 1.0f+SIGN_PLACE_MAX_AREA_DIFFERENCE)
   {
     return false;
   }
-/*
-  cv::Point unionUpperLeft;
-  cv::Point unionLowerRight;
 
-  //calculate union of both signplaces
+  cv::Rect unionRect = signPosition & givenSignPl.signPosition;
 
-  //top line
-  unionUpperLeft.y = std::max(upperLeft.y, givenSignPl.upperLeft.y);
-
-  //lower Line
-  unionLowerRight.y = std::min(lowerRight.y, givenSignPl.lowerRight.y);
-
-  //left line
-  unionUpperLeft.x = std::min(upperLeft.x, givenSignPl.upperLeft.x);
-
-  //right line
-  unionLowerRight.x = std::min(lowerRight.x, givenSignPl.lowerRight.x);
-*/
-  //SignPlace unionArea(unionUpperLeft, unionLowerRight, 0);
-
+  //given signplace must cover at least SIGN_PLACE_MIN_OVERLAPPING_PERCENTAGE % of this
+  //signplaces area
 
   //union area can't exceed this signPlace's area
-  float unionArea = (unionRect.width*unionRect.height);
+  float unionArea = unionRect.area();
   if (unionArea < 0.1) {
     return false;
   }
-  float areaQuotient1 = unionArea/ area;
+  float areaQuotient1 = unionArea / (float) signPosition.area();
   return areaQuotient1 > SIGN_PLACE_MIN_OVERLAPPING_PERCENTAGE &&
       areaQuotient1 < 1+SIGN_PLACE_MIN_OVERLAPPING_PERCENTAGE;
 }
 
 
-void SignPlace::drawOutline(cv::Mat pic,const cv::Scalar& color) const
+void SignPlace::drawOutline(cv::Mat pic,const cv::Scalar& color, bool drawSignID) const
 {
-  cv::rectangle(pic,upperLeft, lowerRight, color,2);
- // cv::putText(pic, std::to_string(signId), lowerRight + cv::Point(10,10),
-  //    cv::FONT_HERSHEY_PLAIN, 3, color, 3);
+  cv::rectangle(pic,signPosition ,color,2);
+  if (drawSignID) {
+    cv::putText(pic, std::to_string(signId), signPosition.br()+cv::Point(10, 10),
+        cv::FONT_HERSHEY_PLAIN, 3, color, 3);
+  }
 }
 
 
-SignPlace& SignPlace::operator=(const SignPlace& other) {
-  upperLeft = other.upperLeft;
-  lowerRight = other.lowerRight;
-  signId = other.signId;
-  area = other.area;
+
+const cv::Rect& SignPlace::getSign() const
+{
+  return signPosition;
+}
+
+const int SignPlace::getSignId() const
+{
+  return signId;
 }
