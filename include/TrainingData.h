@@ -78,7 +78,7 @@ private:
    * the area in which no sign is situated.
    * @return
    */
-  cv::Rect determineAreaWithSigns() const;
+  cv::Rect determineAreaWithSignsAndMaxSignSize() const;
 
   vector<trainingDataInfo> _trainingData;
   SignOccuranceArray _perSignOccurance;  //index is signID

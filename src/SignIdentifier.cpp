@@ -1,7 +1,7 @@
-#include "SignDetector.h"
+#include "SignIdentifier.h"
 
-SignDetector::SignDetector() { }
-SignDetector::~SignDetector()
+SignIdentifier::SignIdentifier() { }
+SignIdentifier::~SignIdentifier()
 {
 }
 
@@ -46,7 +46,7 @@ SignDetector::~SignDetector()
  *
  */
 
-const vector<SignPlace> SignDetector::detect(const cv::Mat inputImage, const cv::Rect& areaWithSigns)
+const vector<cv::Rect> SignIdentifier::detect(const cv::Mat inputImage, const cv::Rect& areaWithSigns)
 {
   //cropp of area with no sign, leaving a region of interest
   cv::Mat inputROI(inputImage, areaWithSigns);
@@ -207,10 +207,7 @@ const vector<SignPlace> SignDetector::detect(const cv::Mat inputImage, const cv:
 /*
   cv::imshow("s_thresh", s);
   cv::waitKey(10);
-
-
   */
-
 
   /**
    * Dilate / Erode
@@ -261,10 +258,11 @@ const vector<SignPlace> SignDetector::detect(const cv::Mat inputImage, const cv:
   cv::threshold(bw, bw, 50,255,cv::THRESH_BINARY);
 */
 
-
+  vector<cv::Rect> output;
 
   cv::Mat grayS;
   cvtColor( s, grayS, CV_BGR2GRAY );
+
 
   findAndDrawContours(cv::Scalar(0,255,0), grayS, s);
 
@@ -289,14 +287,13 @@ const vector<SignPlace> SignDetector::detect(const cv::Mat inputImage, const cv:
 }
 
 
-void SignDetector::findAndDrawContours(const cv::Scalar& color, cv::Mat grayS, cv::Mat targetDraw) {
+vector<cv::Rect> SignIdentifier::findAndDrawContours(const cv::Scalar& color, cv::Mat grayS, cv::Mat targetDraw) {
   vector< vector<cv::Point> > contours;
   cv::findContours(grayS, contours, CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE);
 
-  int drawnContours = 0;
+  vector<cv::Rect> output;
+
   for (const vector<cv::Point>& contour : contours) {
-
-
     cv::Point upperLeft(10000, 100000); //todo this may has to be increased if training pictures get larger
     cv::Point lowerRight(0, 0);
 
@@ -307,21 +304,20 @@ void SignDetector::findAndDrawContours(const cv::Scalar& color, cv::Mat grayS, c
       lowerRight.x = std::max(lowerRight.x, pnt.x);
     }
 
-    cv::Rect contourOutline(upperLeft, lowerRight);
-    if (contourOutline.width < 20 || contourOutline.height < 20) {
+    output.emplace_back(upperLeft, lowerRight);
+
+    /*if (contourOutline.width < 20 || contourOutline.height < 20) {
       continue;
     }
-
-
-
     cv::rectangle(targetDraw,upperLeft, lowerRight, color,1);
+    */
   }
-
+  return output;
 }
 
 
 
-void SignDetector::morphThinning(cv::Mat &img) const {
+void SignIdentifier::morphThinning(cv::Mat &img) const {
   cv::Mat skel(img.size(), CV_8UC1, cv::Scalar(0));
   cv::Mat temp;
   cv::Mat eroded;

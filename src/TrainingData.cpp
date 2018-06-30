@@ -5,7 +5,7 @@
 #include <ftw.h>
 #include <fnmatch.h>
 #include <opencv2/opencv.hpp>
-#include "SignDetector.h"
+#include "SignIdentifier.h"
 
 using std::cout;
 using std::getline;
@@ -20,7 +20,7 @@ TrainingData::TrainingData()
  // gatherTrainingDataFiles();
   _trainingData = loadTrainingData();
   _perSignOccurance = countSignOccurances();
-  _areaWithSigns = determineAreaWithSigns();
+  _areaWithSigns = determineAreaWithSignsAndMaxSignSize();
 
   cout << "========== Satistics\n";
   cout << "Loaded " << _trainingData.size() << " training data elements\n";
@@ -154,8 +154,9 @@ SignOccuranceArray TrainingData::countSignOccurances() const
   }
   return occurances;
 }
-cv::Rect TrainingData::determineAreaWithSigns() const
+cv::Rect TrainingData::determineAreaWithSignsAndMaxSignSize() const
 {
+  //todo
   cv::Point upperLeft(10000, 100000); //todo this may has to be increased if training pictures get larger
   cv::Point lowerRight(0, 0);
 
@@ -169,6 +170,9 @@ cv::Rect TrainingData::determineAreaWithSigns() const
   }
   return cv::Rect(upperLeft, lowerRight);
 }
+
+
+
 const cv::Rect& TrainingData::getAreaWithSigns() const
 {
   return _areaWithSigns;
@@ -213,7 +217,7 @@ void TrainingData::evaluateSignDetector(bool quick) const
   int signDetectedWhereNoneIs = 0;
   SignOccuranceArray correctlyKlassifiedSigns(_perSignOccurance.size());
 
-  SignDetector detector;
+  SignIdentifier detector;
 
   for(const trainingDataInfo& trainingEntry : _trainingData) {
     cv::Mat trainingPicture = cv::imread(TRAINING_DATA_TRAINING_PICTURES_PATH +trainingEntry.filename);
