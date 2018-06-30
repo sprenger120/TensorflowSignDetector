@@ -155,17 +155,31 @@ SignOccuranceArray TrainingData::countSignOccurances() const {
 
 cv::Rect TrainingData::determineAreaWithSignsAndMaxSignSize() const {
   //todo
-  cv::Point upperLeft(10000, 100000); //todo this may has to be increased if training pictures get larger
+  cv::Point upperLeft(999999, 999999); //todo this may has to be increased if training pictures get larger
   cv::Point lowerRight(0, 0);
+
+  int biggestSignW = 0;
+  int biggestSignH = 0;
+  int smallestSignW = 999999;
+  int smallestSignH = 999999;
 
   for (const trainingDataInfo &tr : _trainingData) {
     for (const SignPlace &sign : tr.signs) {
-      upperLeft.y = std::min(upperLeft.y, sign.getUpperLeft().y);
-      upperLeft.x = std::min(upperLeft.x, sign.getUpperLeft().x);
-      lowerRight.y = std::max(lowerRight.y, sign.getLowerRight().y);
-      lowerRight.x = std::max(lowerRight.x, sign.getLowerRight().x);
+      upperLeft.y = std::min(upperLeft.y, sign.getSign().tl().y);
+      upperLeft.x = std::min(upperLeft.x, sign.getSign().tl().x);
+      lowerRight.y = std::max(lowerRight.y, sign.getSign().br().y);
+      lowerRight.x = std::max(lowerRight.x, sign.getSign().br().x);
+
+      biggestSignH = std::max(biggestSignH, sign.getSign().height);
+      biggestSignW = std::max(biggestSignW, sign.getSign().width);
+      smallestSignH = std::min(biggestSignH, sign.getSign().height);
+      smallestSignW = std::min(biggestSignW, sign.getSign().width);
     }
   }
+
+  cout<<"Smallest Sign W:"<<smallestSignW<<" H:"<<smallestSignH
+      <<" | Biggest Sign W:"<<biggestSignW<<" H: "<<biggestSignH<<"\n";
+
   return cv::Rect(upperLeft, lowerRight);
 }
 
@@ -208,11 +222,18 @@ void TrainingData::gatherTrainingDataFiles() const
 
 void TrainingData::evaluateSignDetector(bool quick) const {
   int processedTrainingDataEntries = 0;
-  const int maxTrainingDataEntriesToProcess = 100;
+  const int maxTrainingDataEntriesToProcess = 250;
   SignIdentifier detector;
 
   int signsTotal = 0;
   int signsDetected = 0;
+  int signsDetectedWhereNoneAreaTotal = 0;
+
+  //count of how many signs were detected across all ids
+  SignOccuranceArray detectedSignTypes(_perSignOccurance.size());
+  //count of how many signs where in the training data across all ids
+  SignOccuranceArray trainingSignTypes(_perSignOccurance.size());
+
 
   for (const trainingDataInfo &trainingEntry : _trainingData) {
     cv::Mat trainingPicture = cv::imread(TRAINING_DATA_TRAINING_PICTURES_PATH + trainingEntry.filename);
@@ -271,6 +292,8 @@ void TrainingData::evaluateSignDetector(bool quick) const {
       }
     }
 
+    signsDetectedWhereNoneAreaTotal+=signDetectedWhereNoneIs;
+
     cout << "Signs in example " << trainingEntry.signs.size()
          << "  Identifier missed " << signsInTrainingExample.size()
          << " signs  | Detected " << signDetectedWhereNoneIs <<
@@ -299,8 +322,9 @@ void TrainingData::evaluateSignDetector(bool quick) const {
 
   }
 
-  cout<<"Identifier detect rate: "<< ((signsDetected*100) / (signsTotal))
-      <<" %\n Analyzed over "<<processedTrainingDataEntries<< " entries\n";
+  cout<<"Identifier detect rate: "<< ((signsDetected*100) / (signsTotal))<<"% \n"
+      <<"Signs Detected where none are total: "<<signsDetectedWhereNoneAreaTotal
+      <<"\n Analyzed over "<<processedTrainingDataEntries<< " entries\n";
 }
 
 
