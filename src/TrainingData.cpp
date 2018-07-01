@@ -5,6 +5,7 @@
 #include <ftw.h>
 #include <fnmatch.h>
 #include <opencv2/opencv.hpp>
+#include <SignClassifier.h>
 #include "SignIdentifier.h"
 
 using std::cout;
@@ -220,15 +221,27 @@ void TrainingData::gatherTrainingDataFiles() const
 }
 */
 
+//#define GENERATE_TRAINING_DATA
 void TrainingData::evaluateSignDetector(bool quick) const
 {
   int processedTrainingDataEntries = 0;
   const int maxTrainingDataEntriesToProcess = 200;
   SignIdentifier detector;
+  SignClassifier classy;
 
   int signsTotal = 0;
   int signsDetected = 0;
   int signsDetectedWhereNoneAreaTotal = 0;
+
+  int nonOtherSignsTotal = 0;
+  int correctlyClassifiedSigns = 0;
+
+  int correctlyClassifiyOtherSigns = 0;
+  int otherSignsTotal = 0;
+
+
+  int backgroundClassifiedAsSign = 0;
+
 
   //count of how many signs were detected across all ids
   SignOccuranceArray detectedSignTypes(_perSignOccurance.size());
@@ -240,6 +253,7 @@ void TrainingData::evaluateSignDetector(bool quick) const
   for (const trainingDataInfo& trainingEntry : _trainingData) {
     //###### Load image
     cv::Mat trainingPicture = cv::imread(TRAINING_DATA_TRAINING_PICTURES_PATH+trainingEntry.filename);
+
     if (trainingPicture.data==nullptr) {
       cout << "Unable to load picture for training data entry '" << trainingEntry.filename << "'\n";
       continue;
@@ -282,19 +296,42 @@ void TrainingData::evaluateSignDetector(bool quick) const
 
       cv::Mat positiveROI(trainingPicture, detecSign.getSignPlace());
 
+
+      SignID sig;
+      classy.classify(positiveROI, sig);
+      cout<<"Classy returned: "<<sig<<"\n";
+
+
       for (size_t i = 0; i<signsInTrainingExample.size(); ++i) {
         if (signsInTrainingExample[i].isOverlappingEnough(detecSign)) {
 
+#ifdef GENERATE_TRAINING_DATA
           std::stringstream ss;
           ss<<"train_data/" << signsInTrainingExample[i].getSignId()<<"/"
              <<positiveGeneratorNumber<<".jpg";
 
           cv::imwrite(ss.str(), positiveROI);
           positiveGeneratorNumber++;
+#endif
 
           detectedSignTypes[signsInTrainingExample[i].getSignId()].cnt++;
           signsInTrainingExample.erase(signsInTrainingExample.begin()+i);
           matched = true;
+
+          //non other sign
+          const SignID _sign = signsInTrainingExample[i].getSignId();
+          if (_sign == 3 || _sign == 11 || _sign == 12 || _sign == 13 || _sign == 38) {
+            if (_sign == sig) {
+              correctlyClassifiedSigns++;
+            }
+            nonOtherSignsTotal++;
+          } else{
+            if (sig == -2) {
+              correctlyClassifiyOtherSigns++;
+            }
+            otherSignsTotal++;
+          }
+
           break;
         }
       }
@@ -308,12 +345,16 @@ void TrainingData::evaluateSignDetector(bool quick) const
         }
       }
       else {
+#ifdef GENERATE_TRAINING_DATA
         positiveGeneratorNumber++;
         std::stringstream ss;
         if (processedTrainingDataEntries < 50) {
           ss << "train_data/negatives/" << positiveGeneratorNumber << ".jpg";
-
-        cv::imwrite(ss.str(), positiveROI);
+          cv::imwrite(ss.str(), positiveROI);
+        }
+#endif
+        if (sig != -1) {
+          backgroundClassifiedAsSign++;
         }
         signDetectedWhereNoneIs++;
         //not correctly spotted, red
@@ -330,11 +371,14 @@ void TrainingData::evaluateSignDetector(bool quick) const
          << " signs  | Detected " << signDetectedWhereNoneIs <<
          "  where none are \n";
 
+
+
+
+
+
     if (!quick) {
       //draw area with signs outline
       //cv::rectangle(trainingPicture, _areaWithSigns, cv::Scalar(255, 0, 0), 2);
-
-
       //show with imgview
       cv::imshow("SignDetecc", trainingPicture);
       // waits two seconds, kills programm if esc was pressed
@@ -355,6 +399,15 @@ void TrainingData::evaluateSignDetector(bool quick) const
   cout << "Identifier detect rate: " << ((signsDetected*100)/(signsTotal)) << "% \n"
        << "Signs Detected where none are total: " << signsDetectedWhereNoneAreaTotal
        << "\n Analyzed over " << processedTrainingDataEntries << " entries\n";
+
+
+  cout<<"Classifier worked on "<<signsTotal
+      <<"nonOtherSignsTotal: "<<nonOtherSignsTotal
+      <<"correctlyClassifiedSigns: "<<correctlyClassifiedSigns
+      <<"correctlyClassifiyOtherSigns:"<<correctlyClassifiyOtherSigns
+      <<"otherSignsTotal:"<<otherSignsTotal
+       <<"backgroundClassifiedAsSign:"<<backgroundClassifiedAsSign<<"\n";
+
 
   cout << "=== Per Sign detection performance \n";
 
