@@ -8,7 +8,10 @@ set(CMAKE_CXX_STANDARD 14)
 include_directories(sign_detecc include)
 set(SOURCE_FILES main.cpp src/TrainingData.cpp src/SignIdentifier.cpp src/SignPlace.cpp include/Types.h)
 add_executable(sign_detecc ${SOURCE_FILES})
-target_link_libraries(sign_detecc ${OpenCV_LIBS} )
+target_link_libraries(sign_detecc
+        ${OpenCV_LIBS}
+        pthread
+        )
 
 
 

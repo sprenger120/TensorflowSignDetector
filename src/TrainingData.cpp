@@ -220,8 +220,12 @@ void TrainingData::gatherTrainingDataFiles() const
 }
 */
 
-void TrainingData::evaluateSignDetector(bool quick) const
+void TrainingData::evaluateSignDetector(bool quick,
+      const EvaluationResult& result,
+      const size_t trainingStartIndex,
+      const size_t trainingSize)
 {
+
   int processedTrainingDataEntries = 0;
   const int maxTrainingDataEntriesToProcess = 200;
   SignIdentifier detector;
@@ -230,12 +234,14 @@ void TrainingData::evaluateSignDetector(bool quick) const
   int signsDetected = 0;
   int signsDetectedWhereNoneAreaTotal = 0;
 
-  //count of how many signs were detected across all ids
-  SignOccuranceArray detectedSignTypes(_perSignOccurance.size());
-  //count of how many signs where in the training data across all ids
-  SignOccuranceArray trainingSignTypes(_perSignOccurance.size());
+
+  result.detectedSignTypes.resize(_perSignOccurance.size());
+  result.trainingSignTypes.resize(_perSignOccurance.size());
+
 
   int positiveGeneratorNumber = 0;
+
+
 
   for (const trainingDataInfo& trainingEntry : _trainingData) {
     //###### Load image
@@ -482,6 +488,10 @@ const char* TrainingData::SignIDToName(size_t signId) const
   default:
     return "unknown sign";
   }
+}
+const size_t TrainingData::getTrainingExamplesCount() const
+{
+  return _trainingData.size();
 }
 
 }

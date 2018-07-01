@@ -15,6 +15,9 @@ using std::vector;
  */
 
 namespace TrainingData {
+
+
+
 struct SignCount {
   //this could be a simple int typedef but for some sleeker
   //code we have to make sure that a new instance of this is always 0 at the
@@ -25,7 +28,27 @@ struct SignCount {
   float temp;
   size_t signId;
 };
+
 typedef vector<SignCount> SignOccuranceArray;
+
+struct EvaluationResult {
+  //Identifier
+  int signsTotal = 0;   //Total number of signs in training examples
+  int signsDetected = 0; //Correctly detected sign placement of identifier
+  int signsDetectedWhereNoneAreaTotal = 0;
+
+  //count of how many signs were detected across all ids
+  SignOccuranceArray detectedSignTypes;
+  //count of how many signs where in the training data across all ids
+  SignOccuranceArray trainingSignTypes;
+
+  //Klassifier
+  int correctlyDistinguishedFromBackgroundTotal = 0;
+  int correctSignIDTotal = 0;
+  int processedSignPlacements = 0;
+};
+
+
 //static int __fileCallback(const char* fpath, const struct stat* sb, int typeflag);
 //static vector<string> _trainingDataFileList;
 
@@ -43,13 +66,20 @@ public:
    * @param quick if set to false there will be a frame by frame slideshow showing the
    * sign detectors performance, if false all training data will be checked quickly
    */
-  void evaluateSignDetector(const bool quick) const;
+  void evaluateSignDetector(const bool quick,
+      const EvaluationResult& result,
+      const size_t trainingStartIndex,
+      const size_t trainingSize);
 
   /**
    * Returns the area that will contain signs across all loaded training data
    * @return
    */
   const cv::Rect& getAreaWithSigns() const;
+
+
+  const size_t getTrainingExamplesCount() const;
+  const char* SignIDToName(size_t signId) const;
 private:
   struct trainingDataInfo {
     //header: img; x_start; y_start; x_end; y_end; id
@@ -83,8 +113,6 @@ private:
    * @return
    */
   cv::Rect determineAreaWithSignsAndMaxSignSize() const;
-
-  const char* SignIDToName(size_t signId) const;
 
   vector<trainingDataInfo> _trainingData;
   SignOccuranceArray _perSignOccurance;  //index is signID

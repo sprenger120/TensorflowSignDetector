@@ -95,6 +95,7 @@ const vector<SignPlace> SignIdentifier::detect(cv::Mat& inputImage, const cv::Re
 
   //Convert to hsv
   //cv::blur(inputROI,inputROI, cv::Size(3,3)); -> see notes
+  cv::fastNlMeansDenoisingColored(inputROI,inputROI);
   cvtColor( inputROI, inputROI, CV_BGR2HSV );
 
 #ifdef SIGN_IDENT_DEBUG
@@ -117,7 +118,7 @@ const vector<SignPlace> SignIdentifier::detect(cv::Mat& inputImage, const cv::Re
 #endif
 
       //filter by hue
-      if (pixel[0] > 32 && pixel[0] < 105) {
+      if ((pixel[0] > 30 && pixel[0] < 105) || (pixel[0] > 125 && pixel[0] < 160)) {
         inputROI.at<cv::Vec3b>(y,x) = cv::Vec3d(0,0,0);
 #ifdef SIGN_IDENT_DEBUG
         s.at<cv::Vec3b>(y,x) = cv::Vec3d(0,0,0);
@@ -239,6 +240,10 @@ const vector<SignPlace> SignIdentifier::detect(cv::Mat& inputImage, const cv::Re
     if (rec.width > SIZE_CATEGORY_NORMAL_W_H) {
       continue;
     } else if (double(rec.height) / double(rec.width) > SIZE_CATEOGRY_LONG_H_FACTOR) {
+      /*cv::Mat roi(inputROIunedited, rec);
+      cv::imshow("huge_Category", roi);
+      cv::waitKey(1000);
+*/
       cv::Size size(rec.width, rec.width);
       //upper
       // missing roi offset
@@ -258,7 +263,7 @@ const vector<SignPlace> SignIdentifier::detect(cv::Mat& inputImage, const cv::Re
   }
 
 #ifdef SIGN_IDENT_DEBUG
-  cv::waitKey(1000000);
+  //cv::waitKey(1000000);
 #endif
 
   return outSigns;
