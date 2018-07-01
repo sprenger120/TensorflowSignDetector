@@ -165,15 +165,15 @@ cv::Rect TrainingData::determineAreaWithSignsAndMaxSignSize() const {
 
   for (const trainingDataInfo &tr : _trainingData) {
     for (const SignPlace &sign : tr.signs) {
-      upperLeft.y = std::min(upperLeft.y, sign.getSign().tl().y);
-      upperLeft.x = std::min(upperLeft.x, sign.getSign().tl().x);
-      lowerRight.y = std::max(lowerRight.y, sign.getSign().br().y);
-      lowerRight.x = std::max(lowerRight.x, sign.getSign().br().x);
+      upperLeft.y = std::min(upperLeft.y, sign.getSignPlace().tl().y);
+      upperLeft.x = std::min(upperLeft.x, sign.getSignPlace().tl().x);
+      lowerRight.y = std::max(lowerRight.y, sign.getSignPlace().br().y);
+      lowerRight.x = std::max(lowerRight.x, sign.getSignPlace().br().x);
 
-      biggestSignH = std::max(biggestSignH, sign.getSign().height);
-      biggestSignW = std::max(biggestSignW, sign.getSign().width);
-      smallestSignH = std::min(biggestSignH, sign.getSign().height);
-      smallestSignW = std::min(biggestSignW, sign.getSign().width);
+      biggestSignH = std::max(biggestSignH, sign.getSignPlace().height);
+      biggestSignW = std::max(biggestSignW, sign.getSignPlace().width);
+      smallestSignH = std::min(biggestSignH, sign.getSignPlace().height);
+      smallestSignW = std::min(biggestSignW, sign.getSignPlace().width);
     }
   }
 
@@ -220,9 +220,10 @@ void TrainingData::gatherTrainingDataFiles() const
 }
 */
 
-void TrainingData::evaluateSignDetector(bool quick) const {
+void TrainingData::evaluateSignDetector(bool quick) const
+{
   int processedTrainingDataEntries = 0;
-  const int maxTrainingDataEntriesToProcess = 250;
+  const int maxTrainingDataEntriesToProcess = 200;
   SignIdentifier detector;
 
   int signsTotal = 0;
@@ -234,48 +235,70 @@ void TrainingData::evaluateSignDetector(bool quick) const {
   //count of how many signs where in the training data across all ids
   SignOccuranceArray trainingSignTypes(_perSignOccurance.size());
 
+  int positiveGeneratorNumber = 0;
 
-  for (const trainingDataInfo &trainingEntry : _trainingData) {
-    cv::Mat trainingPicture = cv::imread(TRAINING_DATA_TRAINING_PICTURES_PATH + trainingEntry.filename);
-    if (trainingPicture.data == nullptr) {
+  for (const trainingDataInfo& trainingEntry : _trainingData) {
+    //###### Load image
+    cv::Mat trainingPicture = cv::imread(TRAINING_DATA_TRAINING_PICTURES_PATH+trainingEntry.filename);
+    if (trainingPicture.data==nullptr) {
       cout << "Unable to load picture for training data entry '" << trainingEntry.filename << "'\n";
       continue;
     }
 
+    //###### worked training entries statistic
     ++processedTrainingDataEntries;
-    if (processedTrainingDataEntries > maxTrainingDataEntriesToProcess) {
+    if (processedTrainingDataEntries>maxTrainingDataEntriesToProcess) {
       break;
     }
 
+    //##### identify signs
     const vector<SignPlace> detectedSigns = detector.detect(trainingPicture, _areaWithSigns);
 
-    if(!quick) {
+    //#### visualize marked signs from training data
+    if (!quick) {
       //draw training signs outlines, pink
-      for (const SignPlace &trainingSign : trainingEntry.signs) {
+      for (const SignPlace& trainingSign : trainingEntry.signs) {
         trainingSign.drawOutline(trainingPicture, cv::Scalar(255, 0, 255));
       }
 
     }
 
+    //#### check identification performance #################################################################
     //assuming no double signplaces for the same sign because those will be counted
     //as detectedWhereNoneIs
     vector<SignPlace> signsInTrainingExample = trainingEntry.signs;
-    signsTotal+=signsInTrainingExample.size();
+    signsTotal += signsInTrainingExample.size();
+
+
+    for (size_t i = 0; i<signsInTrainingExample.size(); ++i) {
+      trainingSignTypes[signsInTrainingExample[i].getSignId()].cnt++;
+    }
 
     int signDetectedWhereNoneIs = 0;
     //cross check detected signs with training data
     //todo filter out multiple detection of same trainingSign
-    for (const SignPlace &detecSign :  detectedSigns) {
+    for (const SignPlace& detecSign :  detectedSigns) {
       bool matched = false;
 
+      cv::Mat positiveROI(trainingPicture, detecSign.getSignPlace());
 
-      for (size_t i = 0; i < signsInTrainingExample.size(); ++i) {
+      for (size_t i = 0; i<signsInTrainingExample.size(); ++i) {
         if (signsInTrainingExample[i].isOverlappingEnough(detecSign)) {
-          signsInTrainingExample.erase(signsInTrainingExample.begin() + i);
+
+          std::stringstream ss;
+          ss<<"train_data/" << signsInTrainingExample[i].getSignId()<<"/"
+             <<positiveGeneratorNumber<<".jpg";
+
+          cv::imwrite(ss.str(), positiveROI);
+          positiveGeneratorNumber++;
+
+          detectedSignTypes[signsInTrainingExample[i].getSignId()].cnt++;
+          signsInTrainingExample.erase(signsInTrainingExample.begin()+i);
           matched = true;
           break;
         }
       }
+
 
       if (matched) {
         signsDetected++;
@@ -283,7 +306,15 @@ void TrainingData::evaluateSignDetector(bool quick) const {
         if (!quick) {
           detecSign.drawOutline(trainingPicture, cv::Scalar(0, 255, 0));
         }
-      } else {
+      }
+      else {
+        positiveGeneratorNumber++;
+        std::stringstream ss;
+        if (processedTrainingDataEntries < 50) {
+          ss << "train_data/negatives/" << positiveGeneratorNumber << ".jpg";
+
+        cv::imwrite(ss.str(), positiveROI);
+        }
         signDetectedWhereNoneIs++;
         //not correctly spotted, red
         if (!quick) {
@@ -292,7 +323,7 @@ void TrainingData::evaluateSignDetector(bool quick) const {
       }
     }
 
-    signsDetectedWhereNoneAreaTotal+=signDetectedWhereNoneIs;
+    signsDetectedWhereNoneAreaTotal += signDetectedWhereNoneIs;
 
     cout << "Signs in example " << trainingEntry.signs.size()
          << "  Identifier missed " << signsInTrainingExample.size()
@@ -307,25 +338,150 @@ void TrainingData::evaluateSignDetector(bool quick) const {
       //show with imgview
       cv::imshow("SignDetecc", trainingPicture);
       // waits two seconds, kills programm if esc was pressed
-      while(true) {
+      while (true) {
         int k = cv::waitKey(20);
-        if (k == 27) {
+        if (k==27) {
           cv::destroyAllWindows();
           return;
         }
-        if (k == 32) {
+        if (k==32) {
           break;
         }
       }
     }
 
-
   }
 
-  cout<<"Identifier detect rate: "<< ((signsDetected*100) / (signsTotal))<<"% \n"
-      <<"Signs Detected where none are total: "<<signsDetectedWhereNoneAreaTotal
-      <<"\n Analyzed over "<<processedTrainingDataEntries<< " entries\n";
+  cout << "Identifier detect rate: " << ((signsDetected*100)/(signsTotal)) << "% \n"
+       << "Signs Detected where none are total: " << signsDetectedWhereNoneAreaTotal
+       << "\n Analyzed over " << processedTrainingDataEntries << " entries\n";
+
+  cout << "=== Per Sign detection performance \n";
+
+  /*
+   *
+   *  //count of how many signs were detected across all ids
+  SignOccuranceArray detectedSignTypes(_perSignOccurance.size());
+  //count of how many signs where in the training data across all ids
+  SignOccuranceArray trainingSignTypes(_perSignOccurance.size());
+   */
+  for (size_t indx = 0; indx<detectedSignTypes.size(); ++indx) {
+    detectedSignTypes[indx].signId = indx;
+    if (trainingSignTypes[indx].cnt > 0) {
+      detectedSignTypes[indx].temp = float(detectedSignTypes[indx].cnt)/float(trainingSignTypes[indx].cnt);
+    }else {
+      detectedSignTypes[indx].temp = -100.0f;
+    }
+  }
+
+  std::sort(detectedSignTypes.begin(), detectedSignTypes.end(), [](const SignCount& a, const SignCount& b) {
+    return a.temp>b.temp;
+  });
+
+  for (size_t indx = 0; indx<detectedSignTypes.size(); ++indx) {
+    if (detectedSignTypes[indx].temp  < 0) {
+      break;
+    }
+    cout << "#" << detectedSignTypes[indx].signId
+         << " rate:  " << (detectedSignTypes[indx].temp * 100.0f) << " % "
+         <<"("<<SignIDToName(detectedSignTypes[indx].signId)<<")\n";
+  }
+
 }
 
+
+const char* TrainingData::SignIDToName(size_t signId) const
+{
+  switch (signId) {
+  case 0:
+    return "Höchstgeschw. 20";
+  case 1:
+    return "Höchstgeschw. 30";
+  case 2:
+    return "Höchstgeschw. 50";
+  case 3:
+    return "Höchstgeschw. 60";
+  case 4:
+    return "Höchstgeschw. 70";
+  case 5:
+    return "Höchstgeschw. 80";
+  case 6:
+    return "Ende Höchstgeschw. 80";
+  case 7:
+    return "Höchstgeschw. 100";
+  case 8:
+    return "Höchstgeschw. 120";
+  case 9:
+    return "Überholverbot";
+  case 10:
+    return "Überholverbot >3,5t";
+  case 11:
+    return "Vorfahrt";
+  case 12:
+    return "Vorfahrtsstraße";
+  case 13:
+    return "Vorfahrt gewähren";
+  case 14:
+    return "Stop";
+  case 15:
+    return "Verbot für alle Fahrzeuge";
+  case 16:
+    return "Verbot für alle LKW";
+  case 17:
+    return "Verbot der Einfahrt, Gegenverkehr";
+  case 18:
+    return "Achtung";
+  case 19:
+    return "Kurve Links";
+  case 20:
+    return "Kurve Rechts";
+  case 21:
+    return "Doppelkurve";
+  case 22:
+    return "Unebene Fahrbahn";
+  case 23:
+    return "Schleudergefahr N&S";
+  case 24:
+    return "Rechts verengte Fahrbahn";
+  case 25:
+    return "Bauarbeiten";
+  case 26:
+    return "Ampel";
+  case 27:
+    return "Fußgänger";
+  case 28:
+    return "Kinderz";
+  case 29:
+    return "Fahrradverkehr";
+  case 30:
+    return "Schnee- od. Eisglätte";
+  case 31:
+    return "Wildwechsel";
+  case 32:
+    return "Ende der Geschwindigkeitsbegrenzung";
+  case 33:
+    return "Fahrtrichtung Rechts";
+  case 34:
+    return "Fahrtrichtung Links";
+  case 35:
+    return "Fahrtrichtung Geradeaus";
+  case 36:
+    return "Fahrtrichtung Geraudeaus+Rechts";
+  case 37:
+    return "Fahrtrichtung Geraudeaus+Links";
+  case 38:
+    return "Fahrtrichtung Rechts vorbei";
+  case 39:
+    return "Fahrtrichtung Links vorbei";
+  case 40:
+    return "Kreisverkehr";
+  case 41:
+    return "Ende überholverbot";
+  case 42:
+    return "Ende überholverbot >3.5t";
+  default:
+    return "unknown sign";
+  }
+}
 
 }

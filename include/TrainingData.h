@@ -20,6 +20,10 @@ struct SignCount {
   //code we have to make sure that a new instance of this is always 0 at the
   //start
   int cnt = 0;
+
+  //stuff for statistic pretty hacky imo
+  float temp;
+  size_t signId;
 };
 typedef vector<SignCount> SignOccuranceArray;
 //static int __fileCallback(const char* fpath, const struct stat* sb, int typeflag);
@@ -79,6 +83,8 @@ private:
    * @return
    */
   cv::Rect determineAreaWithSignsAndMaxSignSize() const;
+
+  const char* SignIDToName(size_t signId) const;
 
   vector<trainingDataInfo> _trainingData;
   SignOccuranceArray _perSignOccurance;  //index is signID
