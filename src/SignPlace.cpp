@@ -19,7 +19,7 @@ SignPlace::SignPlace(const cv::Point& upperLeft, const cv::Point& lowerRight, co
   }
 }
 SignPlace::SignPlace(const cv::Rect& r, const int signId) :
-signPosition(signPosition), signId(signId)
+signPosition(r), signId(signId)
 {
 }
 
@@ -70,7 +70,7 @@ void SignPlace::drawOutline(cv::Mat pic,const cv::Scalar& color, bool drawSignID
 
 
 
-const cv::Rect& SignPlace::getSign() const
+const cv::Rect& SignPlace::getSignPlace() const
 {
   return signPosition;
 }
