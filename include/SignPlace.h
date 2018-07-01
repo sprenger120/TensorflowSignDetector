@@ -16,7 +16,7 @@ public:
 
   const int getSignId() const;
   SignPlace& operator=(const SignPlace&);
-  const cv::Rect& getSign() const;
+  const cv::Rect& getSignPlace() const;
 
   /**
    * Evaluates if the given SignPlace is overlapping enough
