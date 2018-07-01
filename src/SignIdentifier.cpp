@@ -21,7 +21,7 @@ SignIdentifier::~SignIdentifier()
  *          schilder nicht mehr erkannt...
  *      * scheint teile der bäume zu entfernen aber farbrauschen der kameras macht es schwer
  *          alles zu entfernen
- *      * 4x4 blurring hilft gegen farbrauschen
+ *      * (4x4 blurring hilft gegen farbrauschen - hat detektionsrate global um ~5% gesenkt)
  *
  *  -> schilder sind jetzt entweder gut separiert oder stehen als schwarzer fleck in einer großen weißen
  *      fläche von grünzeug
@@ -46,321 +46,284 @@ SignIdentifier::~SignIdentifier()
  *
  */
 
-const vector<SignPlace> SignIdentifier::detect(const cv::Mat inputImage, const cv::Rect& areaWithSigns)
-{
-  //cropp of area with no sign, leaving a region of interest
-  cv::Mat inputROIunedited(inputImage, areaWithSigns);
-  cv::Mat inputROI;
-  inputROIunedited.copyTo(inputROI);
+/**
+ * HSV  - H Spectrum
+ * red  H = 0
+ * yellow H = 30
+ * pure green  H=60
+ * cyan H = 90
+ * blue H = 120
+ */
 
-  //all coordinates from inputROI are no longer aligned with the original image
+//max size values, integers unless stated otherwise
+#define SIZE_CATEGORY_TINY_W_H 12
+#define SIZE_CATEGORY_SMALL_W_H 30
+#define SIZE_CATEGORY_NORMAL_W_H 128
+#define SIZE_CATEOGRY_LONG_H_FACTOR 2.0 //double, how much more height there should be seen from w
+#define SIZE_CATEGORY_WIDE_W_FACTOR 2.0 //double analogous to SIZE_CATEOGRY_LONG_H_FACTOR
+
+#define SIZE_CATEGORY_SMALL_ENLARGEMENT_FACTOR 0.5 //double,  see explaination after big ################ break
+
+//#define SIGN_IDENT_DEBUG
+#define PRESERVE_ORIGINAL
+
+const vector<SignPlace> SignIdentifier::detect(cv::Mat& inputImage, const cv::Rect& areaWithSigns)
+{
+  //crop of area with no sign, leaving a region of interest
+  cv::Mat inputROI;
+
+#ifdef PRESERVE_ORIGINAL
+  //when in debug mode we want to preserve the original image
+  //so that TrainingData can still use it to draw stuff on it without it being totally
+  //destroyed by all the steps in this function
+  cv::Mat inputROIunedited(inputImage, areaWithSigns);
+  inputROIunedited.copyTo(inputROI);
+#else
+  inputROI = cv::Mat(inputImage, areaWithSigns);
+#endif
+
+  //all coordinates from inputROI are no longer aligned with inputImage
   //we have to add some offset to the coordinates to get back to the original ones
   //the offset is exacly the upperLeft starting point of our roi - how convenient
   cv::Point roiOffset(areaWithSigns.x, areaWithSigns.y);
 
 
-
-  /*
-    Mat houghsPic(matPicture.rows, matPicture.cols, CV_8UC1);
-    //cvtColor(matPicture, houghsPic, CV_GRAY2BGR);
-    vector<Vec4i> lines;
-    HoughLinesP(matPicture, lines, 1, CV_PI/180, 50, 50, 10 );
-    for( size_t i = 0; i < lines.size(); i++ )
-    {
-      Vec4i l = lines[i];
-      line( houghsPic, Point(l[0], l[1]), Point(l[2], l[3]), Scalar(255), 1, CV_AA);
-    }
-
-
-    //matPicture = houghsPic;
-
-    *for(Rect& rec : trData.signs) {
-      //color scalaer is bgr format
-      cv::rectangle(matPicture,rec.upperLeft, rec.lowerRight, cv::Scalar(0,255,0),2);
-      cv::putText(matPicture, to_string(rec.signId), rec.lowerRight + cv::Point(10,10),
-          cv::FONT_HERSHEY_PLAIN, 3, cv::Scalar(0,255,0), 3);
-    }*
-  }
-*/
-
-
- // red  H = 0
-  // yellow H = 30
-  // pure green  H=60
-  // cyan H = 90
-  // blue H = 120
-  //
-  //
-
-  /*cv::imshow("original", inputROI);
+#ifdef SIGN_IDENT_DEBUG
+  cv::imshow("0OriginalROI", inputROI);
   cv::waitKey(10);
-*/
-   /*
-  cv::Mat g;
-  inputROI.copyTo(g);
+#endif
 
-  for (int y = 0;y<inputROI.rows; ++y) {
-    for (int x = 0; x<inputROI.cols; ++x) {
-      //char histAdjPixel = equalized.at<char>(y,x);
-      cv::Vec3b pixel = inputROI.at<cv::Vec3b>(y, x);
-      g.at<cv::Vec3b>(y,x) = cv::Vec3d((float(y)/float(inputROI.rows))*255.0f,255 - (float(y)/float(inputROI.rows))*255.0f,0);
-    }
-  }
-
-  cv::imshow("g", g);
-  cv::waitKey(10);
-
-  cvtColor( g, g, CV_BGR2HSV );
-
-  for (int y = 0;y<inputROI.rows; ++y) {
-    for (int x = 0; x<inputROI.cols; ++x) {
-      //char histAdjPixel = equalized.at<char>(y,x);
-      cv::Vec3b pixel = g.at<cv::Vec3b>(y, x);
-      g.at<cv::Vec3b>(y,x) = cv::Vec3d(pixel[0],pixel[0],pixel[0]);
-    }
-  }
-
-  cv::imshow("g_hsv", g);
-  cv::waitKey(10);
-*/
-
-
-  //cv::blur(inputROI,inputROI, cv::Size(3,3));
-
-  //cv::equalizeHist(equalized,equalized);
+  //Convert to hsv
+  //cv::blur(inputROI,inputROI, cv::Size(3,3)); -> see notes
   cvtColor( inputROI, inputROI, CV_BGR2HSV );
 
-  cv::Mat h,s,v, s_uncropped;
-
+#ifdef SIGN_IDENT_DEBUG
+  cv::Mat h,s, s_unfilteredByH;
   inputROI.copyTo(h);
   inputROI.copyTo(s);
-  inputROI.copyTo(v);
-  inputROI.copyTo(s_uncropped);
+  inputROI.copyTo(s_unfilteredByH);
+#endif
 
-
+  //reduce inputROI to just the S channel and apply some filtering from the H channel
+  //to block out all leaves
   for (int y = 0;y<inputROI.rows; ++y) {
     for(int x =0;x<inputROI.cols;++x) {
-      //char histAdjPixel = equalized.at<char>(y,x);
-      cv::Vec3b pixel = inputROI.at<cv::Vec3b>(y,x);
+      cv::Vec3b pixel = inputROI.at<cv::Vec3b>(y,x); //0=H, 1=S, 2=V
 
-
-      float lightSum = pixel[2] + pixel[1] + pixel[0];
-
-      float chRed = pixel[2];
-      float chGreen = pixel[1];
-      float chBlue = pixel[0];
-
-     // float histAdjFactor = float(histAdjPixel) / 255;
-
-      float redRatio = (chRed / lightSum);
-      float greenRatio = chGreen / lightSum;
-      float blueRatio = chBlue / lightSum;
-
-
+#ifdef SIGN_IDENT_DEBUG
+      //debug pictures for each H and S channel
       h.at<cv::Vec3b>(y,x) = cv::Vec3d(pixel[0],pixel[0],pixel[0]);
+      s_unfilteredByH.at<cv::Vec3b>(y,x) = cv::Vec3d(pixel[1],pixel[1],pixel[1]);
+#endif
 
-      //blacken saturation image by hue
-
-      if (pixel[0] > 30 && pixel[0] < 105) {
-          s.at<cv::Vec3b>(y,x) = cv::Vec3d(0,0,0);
-      } else {
-          s.at<cv::Vec3b>(y,x) = cv::Vec3d(pixel[1],pixel[1],pixel[1]);
-      }
-
-      s_uncropped.at<cv::Vec3b>(y,x) = cv::Vec3d(pixel[1],pixel[1],pixel[1]);
-      v.at<cv::Vec3b>(y,x) = cv::Vec3d(pixel[2],pixel[2],pixel[2]);
-
-      //std::cout<<<<"\n";
-     /* if (redRatio > 0.45) {
-        inputROI.at<cv::Vec3b>(y,x) = cv::Vec3d(0,0,255);
-      } /*else if (blueRatio > 0.45) {
-        inputROI.at<cv::Vec3b>(y,x) = cv::Vec3d(255,0,0);
-      } *else {
-
-      }
-      //inputROI.at<cv::Vec3b>(y,x) = cv::Vec3d(blueRatio*255,greenRatio*255,redRatio*255);
-
-
-      /*int red = int(float(pixel[2]) - (float(pixel[0])*1 + float(pixel[1])*1.5 )) *2;
-      int blue = int(float(pixel[0]) - (float(pixel[2])*1 + float(pixel[1])*1.5 )) *2;
-
-      inputROI.at<cv::Vec3b>(y,x) = cv::Vec3d(red,red,red);
-*/
-      /*if (diff > 75 && pixel[0] == largestValue) {
-        inputROI.at<cv::Vec3b>(y,x) = cv::Vec3d(255,0,0);
-      } else {
+      //filter by hue
+      if (pixel[0] > 32 && pixel[0] < 105) {
         inputROI.at<cv::Vec3b>(y,x) = cv::Vec3d(0,0,0);
-      }*
-
-
-      // =  * 2;
-*/
+#ifdef SIGN_IDENT_DEBUG
+        s.at<cv::Vec3b>(y,x) = cv::Vec3d(0,0,0);
+#endif
+      } else {
+        inputROI.at<cv::Vec3b>(y,x) = cv::Vec3d(pixel[1],pixel[1],pixel[1]);
+#ifdef SIGN_IDENT_DEBUG
+          s.at<cv::Vec3b>(y,x) = cv::Vec3d(pixel[1],pixel[1],pixel[1]);
+#endif
+      }
      }
   }
 
-/*  cv::imshow("H", h);
-  cv::waitKey(10);
-  cv::imshow("s", s);
-  cv::waitKey(10);
-  cv::imshow("s_uncropped", s_uncropped);
-*/
+#ifdef SIGN_IDENT_DEBUG
+  cv::imshow("HChannel", h);
+  cv::imshow("1SChannelFiltered", s);
+  cv::imshow("SChannelUnfiltered", s_unfilteredByH);
+#endif
 
- /*
-*/
+
+  //threshold our image so that only very saturated colors are coming through (all signs)
   //50 vor s threshold seems to remove all the street
-  //55 for halv the false positives,  50 for better detection rate
-  cv::threshold(s, s, 50, 255,CV_THRESH_BINARY);
-/*
-  cv::imshow("s_thresh", s);
-  cv::waitKey(10);
-  */
+  cv::threshold(inputROI, inputROI, 50, 255,CV_THRESH_BINARY);
 
-  /**
-   * Dilate / Erode
-   */
+#ifdef SIGN_IDENT_DEBUG
+  //cv::imshow("2Threshold", inputROI);
+#endif
 
 
+  //Denoise thresholded image with morphological operators
+  //double application or bigger kernel sizes only reduce identification rate significantly
   int erosion_size = 1;
   int dilation_size = 1;
-
   cv::Mat element = cv::getStructuringElement( cv::MORPH_RECT,
           cv::Size( 2*erosion_size + 1, 2*erosion_size+1 ),
           cv::Point( erosion_size, erosion_size ) );
-
-  /// Apply the erosion operation
-
-
-
   cv::Mat element2 = getStructuringElement( cv::MORPH_RECT,
       cv::Size( 2*dilation_size + 1, 2*dilation_size+1 ),
       cv::Point( dilation_size, dilation_size ) );
-  /// Apply the dilation operation
+  erode( inputROI, inputROI, element );
+  dilate( inputROI, inputROI, element2 );
+
+#ifdef SIGN_IDENT_DEBUG
+  cv::imshow("3Morph", inputROI);
+#endif
+
+//####################################################################################################
+
+  // Now we are left with a picture that contains clusters of white pixels
+  // we want to separate clusters and work on their bounding boxes
+  // Convert inputROI from 24bpp to 8bpp because the next operations don't require more and we want to save
+  // some cache time
+  // white is seen as pixels of interest,  black is ignored
+  cv::Mat inputROIGray, inputROIGrayNegative;
+  cvtColor( inputROI, inputROIGray, CV_BGR2GRAY );
+  inputROIGray.copyTo(inputROIGrayNegative);
+  cv::bitwise_not(inputROIGrayNegative, inputROIGrayNegative);
+  vector<cv::Rect> preFilteredRects;
+
+  //rect size categories:
+  //1. tiny - w&h: >12
+  //2. small - w&h <12, >25
+  //3. normal - w&h <15, >128
+  //4. huge - w&h <128
+  //5. long - small-normal on w but  h > 2*w
+  //6. broad - tiny - huge but  w > 2*w
+
+  //origins
+  //1. tiny - noise and small foilage clusters, trivial reject
+  //2. small signs, inner parts of signs, trivial accept, enlarge
+  //3. hopefully signs but sadly also many foilage clusters, trivial accept
+  //4. large foilage clusters, trivial reject
+  //5. long - foilage clusters,  signs that
+
+  //rect operations:
+  //1. trivial reject - self explanatory
+  //2. trivial accept - self explanatory
+  //3. enlarge, accept - Most signs have a very saturated outer border and will be found
+  //fine by theirselves (outer border is white, inner mostly black)
+  //some signs have a white border and a colored inside which causes the resulting rect to only be
+  //showing the inside. Without further action those rects won't be able to be classified. To fix this
+  // we enlarge the rect by smallCategoryEnlargementFactor.
+  //Because there are also legit signs that are in the small category we add both the enlarged and non enlarged
+  //rects to the preFiltered List
+  //4. bottom, top extract
+  //Sometimes the sign post or will be in the pixel cluster aswell (most of the time sign will be on the bottom or top
+  //of it) so here we will add rects of the bottom and top
+
+  findPixelClustersFloodFillMethod(inputROIGray, preFilteredRects, true, false);
 
 
-  erode( s, s, element );
-  dilate( s, s, element2 );
+  //Because of the fact that the Hue filter won't be able to remove all leaves and trees
+  //it sometimes happens that a sign will be completely enclosed within a big pixel cluster and only
+  //its black middle will stick out
+  //To still grab those signs we use the inverted image from the previous clusterFinder and only
+  //add enlarged small clusters to avoid adding too many false positives
+  findPixelClustersFloodFillMethod(inputROIGrayNegative, preFilteredRects, false, true);
 
 
-
-
-
-  /**
-   * Canny Edge
-   */
-/*
-  int edgeThresh = 1;
-  int lowThreshold = 20;
-  int const max_lowThreshold = 100;
-  int ratio = 3;
-  int kernel_size = 3;
-
-
-  cv::Mat cannysMat;
-  //cv::blur(inputROI,inputROI, cv::Size(4,4));
-  cv::Canny( inputROI, cannysMat, lowThreshold, lowThreshold*ratio, kernel_size );
-
-  cv::Mat bw;
-  cvtColor( inputROI, bw, CV_BGR2GRAY );
-  morphThinning(bw);
-  cv::threshold(bw, bw, 50,255,cv::THRESH_BINARY);
-*/
-
-  vector<cv::Rect> output;
-
-  cv::Mat grayS, grayS_;
-  cvtColor( s, grayS, CV_BGR2GRAY );
-  grayS.copyTo(grayS_);
-
- /* cv::imshow("grays", grayS);
-  cv::waitKey(100);
-*/
-
-  for (int y = 0;y<grayS.rows; ++y) {
-    for (int x = 0; x < grayS.cols; ++x) {
-      //char histAdjPixel = equalized.at<char>(y,x);
-      uchar pixel = grayS.at<uchar>(y, x);
-
-      if (pixel > 0) {
-        cv::Rect filledRect;
-        cv::floodFill(grayS, cv::Point(x,y), cv::Scalar(0), &filledRect);
-        output.push_back(filledRect);
-        //std::cout<<"filling\n";
-      }
-
-
-    }
-  }
-
-
-
-  //auto positiveout = findAndDrawContours(cv::Scalar(0,255,0), grayS, s);
-  //output.insert(output.end(), positiveout.begin(), positiveout.end());
-
-
-  cv::bitwise_not(grayS_, grayS_);
-
-  for (int y = 0;y<grayS.rows; ++y) {
-    for (int x = 0; x < grayS.cols; ++x) {
-      //char histAdjPixel = equalized.at<char>(y,x);
-      uchar pixel = grayS_.at<uchar>(y, x);
-
-      if (pixel > 0) {
-        cv::Rect filledRect;
-        cv::floodFill(grayS_, cv::Point(x,y), cv::Scalar(0), &filledRect);
-
-        cv::Point enlargementFactor(double(filledRect.width)*0.2, double(filledRect.height)*0.2);
-        cv::Rect filledRect_(filledRect.tl() - enlargementFactor, filledRect.br()+enlargementFactor);
-
-
-        output.push_back(filledRect_);
-       // std::cout<<"filling\n";
-      }
-
-
-    }
-  }
-
-
-  /*erode( grayS, grayS, element );
-  dilate( grayS, grayS, element2 );
-*/
-
-//  cv::imshow("inverted", grayS);
-/*
-  auto negativeout = findAndDrawContours(cv::Scalar(0,0,255), grayS, s);
-  output.insert(output.end(), negativeout.begin(), negativeout.end());
-*/
-
+  // Filter signs and add new rects in special cases (long size category)
+  // we also have to ensure that all rects going into the outSigns list have their coordinates within
+  // the inputImage or else other openCV operations with these rects will crash the program
   vector<SignPlace> outSigns;
 
-  for (const cv::Rect& rec: output) {
-    //smallest sign is 22x22
-    if (rec.width < 15 || rec.height < 15) {
+  for (const cv::Rect& rec: preFilteredRects) {
+    //tiny filtering already done by findPixelClustersFloodFillMethod
+
+    //see if rect is in huge category -> reject
+    if (rec.width > SIZE_CATEGORY_NORMAL_W_H && rec.height > SIZE_CATEGORY_NORMAL_W_H) {
       continue;
     }
 
-    //biggest sign is 127x128
-    if (rec.width > 200 || rec.height > 200) {
+    //see if rect is in broad category -> reject
+    if (double(rec.width) / double(rec.height) > SIZE_CATEGORY_WIDE_W_FACTOR) {
       continue;
     }
 
-    cv::Point ul(rec.x+roiOffset.x,rec.y+roiOffset.y);
-    cv::Point lr(rec.x+roiOffset.x+rec.width,rec.y+roiOffset.y+rec.height);
+    //see if maybe in long category but w is too big -> reject
+    if (rec.width > SIZE_CATEGORY_NORMAL_W_H) {
+      continue;
+    } else if (double(rec.height) / double(rec.width) > SIZE_CATEOGRY_LONG_H_FACTOR) {
+      cv::Size size(rec.width, rec.width);
+      //upper
+      // missing roi offset
+      outSigns.emplace_back(
+          clipRect(cv::Rect(rec.tl()+roiOffset, size), inputImage),-1);
 
-    outSigns.emplace_back(ul, lr, -1);
+      //lower
+      outSigns.emplace_back(
+          clipRect(cv::Rect(rec.br() - cv::Point(rec.width,rec.width)+roiOffset, size),inputImage), -1);
+
+      continue; // no need to add the large object, the klassifier can't even detect anything on it
+    }
+
+    //apply roiOffset (see start of function for explanation)
+    outSigns.emplace_back(clipCoordinate(rec.tl()+roiOffset, inputImage),
+        clipCoordinate(rec.br()+roiOffset, inputImage), -1);
   }
 
-
-  /*cv::imshow("s_thresh_morph", s);
-  cv::waitKey(100000);
-*/
-
+#ifdef SIGN_IDENT_DEBUG
+  cv::waitKey(1000000);
+#endif
 
   return outSigns;
 }
 
+cv::Rect SignIdentifier::clipRect(const cv::Rect& rect, const cv::Mat& clipMat) const {
+  return cv::Rect(
+      clipCoordinate(rect.tl(), clipMat),
+      clipCoordinate(rect.br(), clipMat));
+}
 
-vector<cv::Rect> SignIdentifier::findAndDrawContours(const cv::Scalar& color, cv::Mat grayS, cv::Mat targetDraw) {
+cv::Point SignIdentifier::clipCoordinate(const cv::Point& pnt, const cv::Mat& clipMat) const {
+  return cv::Point(
+      std::min(clipMat.cols-1, std::max(pnt.x, 0)),
+      std::min(clipMat.rows-1, std::max(pnt.y, 0)));
+}
+
+void SignIdentifier::findPixelClustersFloodFillMethod(cv::Mat& mat, vector<cv::Rect>& preFilteredRects,
+    bool addPreEnlargedAswell, bool onlyAddSmallCategory)
+{
+  for (int y = 0;y<mat.rows; ++y) {
+    for (int x = 0; x < mat.cols; ++x) {
+      uchar pixel = mat.at<uchar>(y, x);
+
+      if (pixel > 0) { //ignore black pixels
+#ifdef SIGN_IDENT_DEBUG
+        //cv::imshow("4PixelClusterFind", mat);
+        //cv::waitKey(100000);
+#endif
+        cv::Rect filledRect;
+        cv::floodFill(mat, cv::Point(x,y), cv::Scalar(0), &filledRect);
+
+        //don't add tiny rects
+        if (filledRect.width < SIZE_CATEGORY_TINY_W_H || filledRect.height < SIZE_CATEGORY_TINY_W_H) {
+          continue;
+        }
+
+        //small category enlarger
+        if (filledRect.width > SIZE_CATEGORY_TINY_W_H &&
+            filledRect.width < SIZE_CATEGORY_SMALL_W_H &&
+            filledRect.height > SIZE_CATEGORY_TINY_W_H &&
+            filledRect.height < SIZE_CATEGORY_SMALL_W_H)
+        {
+          cv::Point enlargementFactor(
+              (int)(double(filledRect.width)*SIZE_CATEGORY_SMALL_ENLARGEMENT_FACTOR),
+              (int)(double(filledRect.height)*SIZE_CATEGORY_SMALL_ENLARGEMENT_FACTOR));
+          cv::Rect filledRect_(filledRect.tl() - enlargementFactor, filledRect.br()+enlargementFactor);
+          preFilteredRects.push_back(filledRect_);
+
+          if (addPreEnlargedAswell) {
+            preFilteredRects.push_back(filledRect);
+          }
+        }else{
+          if (!onlyAddSmallCategory) {
+            preFilteredRects.push_back(filledRect);
+          }
+        }
+      }
+    }
+  }
+}
+
+
+/*
+vector<cv::Rect> SignIdentifier::findPixelClustersContoursMethod(const cv::Scalar& color, cv::Mat grayS, cv::Mat targetDraw) {
   vector< vector<cv::Point> > contours;
   cv::findContours(grayS, contours, CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE);
 
@@ -376,34 +339,15 @@ vector<cv::Rect> SignIdentifier::findAndDrawContours(const cv::Scalar& color, cv
       lowerRight.y = std::max(lowerRight.y, pnt.y);
       lowerRight.x = std::max(lowerRight.x, pnt.x);
     }
-  //  cv::Rect contourOutline(upperLeft, lowerRight);
+    cv::Rect contourOutline(upperLeft, lowerRight);
     output.emplace_back(upperLeft, lowerRight);
 
-  /*  if (contourOutline.width < 20 || contourOutline.height < 20) {
+   if (contourOutline.width < 20 || contourOutline.height < 20) {
       continue;
     }
     cv::rectangle(targetDraw,upperLeft, lowerRight, color,1);
-*/
+
   }
   return output;
 }
-
-
-
-void SignIdentifier::morphThinning(cv::Mat &img) const {
-  cv::Mat skel(img.size(), CV_8UC1, cv::Scalar(0));
-  cv::Mat temp;
-  cv::Mat eroded;
-  cv::Mat element = cv::getStructuringElement(cv::MORPH_CROSS, cv::Size(3, 3));
-
-  do {
-    cv::erode(img, eroded, element);
-    cv::dilate(eroded, temp, element);
-    cv::subtract(img, temp, temp);
-    cv::bitwise_or(skel, temp, skel);
-    eroded.copyTo(img);
-
-  } while (cv::countNonZero(img) > 0);
-
-  img = skel;
-}
+*/
