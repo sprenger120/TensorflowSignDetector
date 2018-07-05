@@ -1,0 +1,33 @@
+=== Finished===
+Processed 51 training examples
+=== Identificator performance 
+Identifier detect rate: 54% 
+Signs Detected where none are total: 10250
+=== Classification performance 
+False Positives (from all classified signs) 0.903614% total:93
+Signs with ids: 3,11,12,13,38 classified correctly (seen only from identified signs) (true positives):93%
+=== Per Sign detection performance 
+#15 rate:  100 % (Verbot für alle Fahrzeuge)
+#39 rate:  100 % (Fahrtrichtung Links vorbei)
+#37 rate:  100 % (Fahrtrichtung Geraudeaus+Links)
+#33 rate:  100 % (Fahrtrichtung Rechts)
+#9 rate:  100 % (Überholverbot)
+#1 rate:  75 % (Höchstgeschw. 30)
+#38 rate:  75 % (Fahrtrichtung Rechts vorbei)
+#2 rate:  71.4286 % (Höchstgeschw. 50)
+#13 rate:  71.4286 % (Vorfahrt gewähren)
+#23 rate:  66.6667 % (Schleudergefahr N&S)
+#4 rate:  66.6667 % (Höchstgeschw. 70)
+#35 rate:  50 % (Fahrtrichtung Geradeaus)
+#11 rate:  50 % (Vorfahrt)
+#27 rate:  50 % (Fußgänger)
+#25 rate:  33.3333 % (Bauarbeiten)
+#40 rate:  33.3333 % (Kreisverkehr)
+#21 rate:  25 % (Doppelkurve)
+#12 rate:  25 % (Vorfahrtsstraße)
+#18 rate:  0 % (Achtung)
+#36 rate:  0 % (Fahrtrichtung Geraudeaus+Rechts)
+#30 rate:  0 % (Schnee- od. Eisglätte)
+#28 rate:  0 % (Kinderz)
+#26 rate:  0 % (Ampel)
+

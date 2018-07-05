@@ -4,7 +4,7 @@
 
 
 
-typedef unsigned int SignID;
+typedef int SignID;
 
 
 

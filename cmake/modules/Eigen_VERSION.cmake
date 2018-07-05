@@ -1,0 +1,5 @@
+set(Eigen_URL https://mirror.bazel.build/bitbucket.org/eigen/eigen/get/2355b229ea4c.tar.gz,https://bitbucket.org/eigen/eigen/get/2355b229ea4c.tar.gz,)
+set(Eigen_ARCHIVE_HASH 2355b229ea4c)
+set(Eigen_HASH SHA256=0cadb31a35b514bf2dfd6b5d38205da94ef326ec6908fc3fd7c269948467214f)
+set(Eigen_DIR eigen3)
+set(Eigen_INSTALL_DIR /usr/local)
