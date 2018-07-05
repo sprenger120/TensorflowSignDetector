@@ -32,7 +32,7 @@ public:
    * @param pic
    * @param color
    */
-  void drawOutline(cv::Mat pic, const cv::Scalar& color, bool drawSignID = false) const;
+  void drawOutline(cv::Mat pic, const cv::Scalar& color, bool drawSignID = false, bool drawInside = false) const;
 private:
   cv::Rect signPosition;
   int signId;

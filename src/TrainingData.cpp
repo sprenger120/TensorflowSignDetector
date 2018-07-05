@@ -225,22 +225,22 @@ void TrainingData::gatherTrainingDataFiles() const
 void TrainingData::evaluateSignDetector(bool quick) const
 {
   int processedTrainingDataEntries = 0;
-  const int maxTrainingDataEntriesToProcess = 20;
+  const int maxTrainingDataEntriesToProcess = 50;
   SignIdentifier detector;
   SignClassifier classy;
 
-  int signsTotal = 0;
-  int signsDetected = 0;
-  int signsDetectedWhereNoneAreaTotal = 0;
+  int signsInTrainingExamplesTotal = 0;
+  int signsIdentifiedCorrectlyTotal = 0;
+  int signsIdentifiedWhereNoneAreaTotal = 0;
 
-  int nonOtherSignsTotal = 0;
-  int correctlyClassifiedSigns = 0;
+  //int nonBackgroundSigns = 0; //how many
+ // int classifiedCorrectlyFromBackground = 0;  //distinction from background successful
 
-  int correctlyClassifiyOtherSigns = 0;
-  int otherSignsTotal = 0;
+  int signsWithNonOtherIds = 0; //total occurances of signs with ids seen below
+  int classifiedCorrectlyNonOther = 0; //sign of ids 3,11,12,13,38 corretly classified
 
-
-  int backgroundClassifiedAsSign = 0;
+  int classifiedSigns = 0;
+  int falsePositives = 0;
 
 
   //count of how many signs were detected across all ids
@@ -265,71 +265,90 @@ void TrainingData::evaluateSignDetector(bool quick) const
       break;
     }
 
+
+
     //##### identify signs
-    const vector<SignPlace> detectedSigns = detector.detect(trainingPicture, _areaWithSigns);
+    vector<SignPlace> detectedSigns = detector.detect(trainingPicture, _areaWithSigns);
+
 
     //#### visualize marked signs from training data
     if (!quick) {
       //draw training signs outlines, pink
       for (const SignPlace& trainingSign : trainingEntry.signs) {
-        trainingSign.drawOutline(trainingPicture, cv::Scalar(255, 0, 255));
+        trainingSign.drawOutline(trainingPicture, cv::Scalar(255, 0, 255), true, true);
       }
-
     }
+
+
 
     //#### check identification performance #################################################################
-    //assuming no double signplaces for the same sign because those will be counted
-    //as detectedWhereNoneIs
-    vector<SignPlace> signsInTrainingExample = trainingEntry.signs;
-    signsTotal += signsInTrainingExample.size();
+    vector<bool> identificatorHasSpottedSign(trainingEntry.signs.size());
+    signsInTrainingExamplesTotal += identificatorHasSpottedSign.size();
 
-
-    for (size_t i = 0; i<signsInTrainingExample.size(); ++i) {
-      trainingSignTypes[signsInTrainingExample[i].getSignId()].cnt++;
+    //fill per sign identification statistic total
+    for (size_t i = 0; i<trainingEntry.signs.size(); ++i) {
+      trainingSignTypes[trainingEntry.signs[i].getSignId()].cnt++;
     }
 
-    int signDetectedWhereNoneIs = 0;
+    int signIdentifiedWhereNoneAre = 0;
+    int signsIdentifiedCorrectly = 0;
     //cross check detected signs with training data
     //todo filter out multiple detection of same trainingSign
-    for (const SignPlace& detecSign :  detectedSigns) {
+    for (SignPlace& _identifiedSign :  detectedSigns) {
+      SignPlace& identifiedSign = _identifiedSign;
       bool matched = false;
 
-      cv::Mat positiveROI(trainingPicture, detecSign.getSignPlace());
+      // ######### classify
+      cv::Mat identifiedSignROI(trainingPicture, identifiedSign.getSignPlace());
+      SignID sig = -1;
+      classy.classify(identifiedSignROI, sig);
+      SignPlace identifiedAndClassifiedSign(identifiedSign.getSignPlace(), sig);
+      identifiedSign = identifiedAndClassifiedSign;
+      classifiedSigns++;
 
 
-      SignID sig;
-      classy.classify(positiveROI, sig);
-      cout<<"Classy returned: "<<sig<<"\n";
+      // draw classified sign
+      if (sig != -1 && !quick) {
+        SignPlace newSig(identifiedSign.getSignPlace(), sig);
+        newSig.drawOutline(trainingPicture, cv::Scalar(0, 255, 0), true);
+      }
 
-
-      for (size_t i = 0; i<signsInTrainingExample.size(); ++i) {
-        if (signsInTrainingExample[i].isOverlappingEnough(detecSign)) {
-
+      // analyze identification performance
+      for (size_t currentSign = 0; currentSign<trainingEntry.signs.size(); ++currentSign) {
+        if (trainingEntry.signs[currentSign].isOverlappingEnough(identifiedSign)) {
 #ifdef GENERATE_TRAINING_DATA
           std::stringstream ss;
-          ss<<"train_data/" << signsInTrainingExample[i].getSignId()<<"/"
+          ss<<"train_data/" << trainingEntry.signs[i].getSignId()<<"/"
              <<positiveGeneratorNumber<<".jpg";
 
-          cv::imwrite(ss.str(), positiveROI);
+          cv::imwrite(ss.str(), identifiedSignROI);
           positiveGeneratorNumber++;
 #endif
 
-          detectedSignTypes[signsInTrainingExample[i].getSignId()].cnt++;
-          signsInTrainingExample.erase(signsInTrainingExample.begin()+i);
+          //mark sign in current training example as successfully spotted
+          if (!identificatorHasSpottedSign[currentSign]) {
+            //spotted the first sign,  do some statistics
+
+            //per sign detection statistics
+            detectedSignTypes[trainingEntry.signs[currentSign].getSignId()].cnt++;
+
+            signsIdentifiedCorrectly++;
+            identificatorHasSpottedSign[currentSign] = true;
+          }
+
           matched = true;
 
           //non other sign
-          const SignID _sign = signsInTrainingExample[i].getSignId();
-          if (_sign == 3 || _sign == 11 || _sign == 12 || _sign == 13 || _sign == 38) {
-            if (_sign == sig) {
-              correctlyClassifiedSigns++;
+          if (trainingEntry.signs[currentSign].getSignId() == 3 ||
+              trainingEntry.signs[currentSign].getSignId() == 11 ||
+              trainingEntry.signs[currentSign].getSignId() == 12 ||
+              trainingEntry.signs[currentSign].getSignId() == 13 ||
+              trainingEntry.signs[currentSign].getSignId() == 38)
+          {
+            signsWithNonOtherIds++;
+            if (trainingEntry.signs[currentSign].getSignId() == identifiedSign.getSignId()) {
+              classifiedCorrectlyNonOther++;
             }
-            nonOtherSignsTotal++;
-          } else{
-            if (sig == -2) {
-              correctlyClassifiyOtherSigns++;
-            }
-            otherSignsTotal++;
           }
 
           break;
@@ -338,43 +357,38 @@ void TrainingData::evaluateSignDetector(bool quick) const
 
 
       if (matched) {
-        signsDetected++;
         //correctly spotted sign will be drawn in green
         if (!quick) {
-          detecSign.drawOutline(trainingPicture, cv::Scalar(0, 255, 0));
+          //detecSign.drawOutline(trainingPicture, cv::Scalar(0, 255, 0));
         }
-      }
-      else {
+      } else {
 #ifdef GENERATE_TRAINING_DATA
         positiveGeneratorNumber++;
         std::stringstream ss;
         if (processedTrainingDataEntries < 50) {
           ss << "train_data/negatives/" << positiveGeneratorNumber << ".jpg";
-          cv::imwrite(ss.str(), positiveROI);
+          cv::imwrite(ss.str(), identifiedSignROI);
         }
 #endif
-        if (sig != -1) {
-          backgroundClassifiedAsSign++;
+        if (identifiedSign.getSignId() != -1) {
+          falsePositives++;
         }
-        signDetectedWhereNoneIs++;
+
+        signIdentifiedWhereNoneAre++;
         //not correctly spotted, red
         if (!quick) {
-          detecSign.drawOutline(trainingPicture, cv::Scalar(0, 0, 255));
+          //detecSign.drawOutline(trainingPicture, cv::Scalar(0, 0, 255));
         }
       }
     }
 
-    signsDetectedWhereNoneAreaTotal += signDetectedWhereNoneIs;
+    signsIdentifiedWhereNoneAreaTotal += signIdentifiedWhereNoneAre;
+    signsIdentifiedCorrectlyTotal += signsIdentifiedCorrectly;
 
     cout << "Signs in example " << trainingEntry.signs.size()
-         << "  Identifier missed " << signsInTrainingExample.size()
-         << " signs  | Detected " << signDetectedWhereNoneIs <<
+         << "  Identifier got " << signsIdentifiedCorrectly
+         << " signs  | Detected " << signIdentifiedWhereNoneAre <<
          "  where none are \n";
-
-
-
-
-
 
     if (!quick) {
       //draw area with signs outline
@@ -396,17 +410,19 @@ void TrainingData::evaluateSignDetector(bool quick) const
 
   }
 
-  cout << "Identifier detect rate: " << ((signsDetected*100)/(signsTotal)) << "% \n"
-       << "Signs Detected where none are total: " << signsDetectedWhereNoneAreaTotal
-       << "\n Analyzed over " << processedTrainingDataEntries << " entries\n";
+  cout<<"=== Finished===\n";
+  cout<<"Processed "<<processedTrainingDataEntries<<" training examples\n";
 
+  cout << "=== Identificator performance \n";
+  cout << "Identifier detect rate: " << ((signsIdentifiedCorrectlyTotal*100)/(signsInTrainingExamplesTotal)) << "% \n"
+       << "Signs Detected where none are total: " << signsIdentifiedWhereNoneAreaTotal<<"\n";
 
-  cout<<"Classifier worked on "<<signsTotal
-      <<"nonOtherSignsTotal: "<<nonOtherSignsTotal
-      <<"correctlyClassifiedSigns: "<<correctlyClassifiedSigns
-      <<"correctlyClassifiyOtherSigns:"<<correctlyClassifiyOtherSigns
-      <<"otherSignsTotal:"<<otherSignsTotal
-       <<"backgroundClassifiedAsSign:"<<backgroundClassifiedAsSign<<"\n";
+  cout << "=== Classification performance \n";
+  cout<< "False Positives (from all classified signs) "
+      <<(float(falsePositives) / float(classifiedSigns))*100.0f<<"% total:"<<falsePositives<<"\n"
+
+      << "Signs with ids: 3,11,12,13,38 classified correctly (seen only from identified signs) (true positives):"
+      <<((classifiedCorrectlyNonOther*100) / signsWithNonOtherIds)<<"%\n";
 
 
   cout << "=== Per Sign detection performance \n";

@@ -59,12 +59,17 @@ const bool SignPlace::isOverlappingEnough(const SignPlace& givenSignPl) const
 }
 
 
-void SignPlace::drawOutline(cv::Mat pic,const cv::Scalar& color, bool drawSignID) const
+void SignPlace::drawOutline(cv::Mat pic,const cv::Scalar& color, bool drawSignID, bool drawInside) const
 {
   cv::rectangle(pic,signPosition ,color,2);
   if (drawSignID) {
-    cv::putText(pic, std::to_string(signId), signPosition.br()+cv::Point(10, 10),
-        cv::FONT_HERSHEY_PLAIN, 3, color, 3);
+    if (drawInside) {
+      cv::putText(pic, std::to_string(signId), signPosition.tl()+cv::Point(10, 10),
+          cv::FONT_HERSHEY_PLAIN, 3, color, 3);
+    } else {
+      cv::putText(pic, std::to_string(signId), signPosition.br()+cv::Point(10, 10),
+          cv::FONT_HERSHEY_PLAIN, 3, color, 3);
+    }
   }
 }
 
