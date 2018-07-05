@@ -41,10 +41,10 @@ int main(int argc, char** argv) {
    throw "aaasdfasdasdasdasdasd";
   }
 
-  TrainingData::TrainingData trainingData;
-  trainingData.evaluateSignDetector(true);
+  TrainingData::TrainingData* trainingData = new TrainingData::TrainingData();
+  trainingData->evaluateSignDetector(true);
   cv::destroyAllWindows();
-
+  delete trainingData;
 
   return 0;
 }
