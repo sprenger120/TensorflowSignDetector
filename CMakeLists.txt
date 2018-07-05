@@ -23,7 +23,7 @@ include_directories(sign_detecc
         include/public)
 
 
-set(SOURCE_FILES main.cpp src/TrainingData.cpp src/SignIdentifier.cpp src/SignPlace.cpp src/SignClassifier.cpp src/SignClassifier.h)
+set(SOURCE_FILES main.cpp src/TrainingData.cpp src/SignIdentifier.cpp src/SignPlace.cpp src/SignClassifier.cpp)
 add_executable(sign_detecc ${SOURCE_FILES})
 target_link_libraries(sign_detecc
         ${TensorFlow_LIBRARIES}
