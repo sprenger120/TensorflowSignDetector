@@ -32,8 +32,18 @@ typedef vector<SignCount> SignOccuranceArray;
 
 class TrainingData {
 public:
+  struct trainingDataInfo {
+    //header: img; x_start; y_start; x_end; y_end; id
+    string filename;
+
+    //borders around signs
+    vector<SignPlace> signs;
+  };
   TrainingData();
   virtual ~TrainingData();
+  vector<trainingDataInfo>& GetTrainingData(){
+    return this->_trainingData;
+  }
 
   /**
    * Evaluates SignDetectors performance across all training data sets and
@@ -51,14 +61,6 @@ public:
    */
   const cv::Rect& getAreaWithSigns() const;
 private:
-  struct trainingDataInfo {
-    //header: img; x_start; y_start; x_end; y_end; id
-    string filename;
-
-    //borders around signs
-    vector<SignPlace> signs;
-  };
-
   /**
    * Searches for all *.png files in the TRAINING_DATA_TRAINING_PICTURES_PATH
    * directory. Later used to sort out training data without picture
