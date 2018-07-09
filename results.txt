@@ -1,33 +1,52 @@
 === Finished===
-Processed 51 training examples
-=== Identificator performance 
-Identifier detect rate: 54% 
-Signs Detected where none are total: 10250
-=== Classification performance 
-False Positives (from all classified signs) 0.903614% total:93
+Processed 505 training examples
+=== Identificator performance
+Identifier detect rate: 62%
+Signs Detected where none are total: 70465
+=== Classification performance
+False Positives (from all classified signs) 1.02909% total:732
 Signs with ids: 3,11,12,13,38 classified correctly (seen only from identified signs) (true positives):93%
-=== Per Sign detection performance 
-#15 rate:  100 % (Verbot für alle Fahrzeuge)
-#39 rate:  100 % (Fahrtrichtung Links vorbei)
+=== Per Sign detection performance
 #37 rate:  100 % (Fahrtrichtung Geraudeaus+Links)
-#33 rate:  100 % (Fahrtrichtung Rechts)
-#9 rate:  100 % (Überholverbot)
-#1 rate:  75 % (Höchstgeschw. 30)
-#38 rate:  75 % (Fahrtrichtung Rechts vorbei)
-#2 rate:  71.4286 % (Höchstgeschw. 50)
-#13 rate:  71.4286 % (Vorfahrt gewähren)
-#23 rate:  66.6667 % (Schleudergefahr N&S)
-#4 rate:  66.6667 % (Höchstgeschw. 70)
-#35 rate:  50 % (Fahrtrichtung Geradeaus)
-#11 rate:  50 % (Vorfahrt)
-#27 rate:  50 % (Fußgänger)
-#25 rate:  33.3333 % (Bauarbeiten)
-#40 rate:  33.3333 % (Kreisverkehr)
-#21 rate:  25 % (Doppelkurve)
-#12 rate:  25 % (Vorfahrtsstraße)
-#18 rate:  0 % (Achtung)
-#36 rate:  0 % (Fahrtrichtung Geraudeaus+Rechts)
-#30 rate:  0 % (Schnee- od. Eisglätte)
-#28 rate:  0 % (Kinderz)
-#26 rate:  0 % (Ampel)
-
+#31 rate:  100 % (Wildwechsel)
+#24 rate:  100 % (Rechts verengte Fahrbahn)
+#0 rate:  100 % (Höchstgeschw. 20)
+#19 rate:  100 % (Kurve Links)
+#5 rate:  94.5946 % (Höchstgeschw. 80)
+#15 rate:  88.8889 % (Verbot für alle Fahrzeuge)
+#14 rate:  86.3636 % (Stop)
+#3 rate:  85.7143 % (Höchstgeschw. 60)
+#7 rate:  81.0811 % (Höchstgeschw. 100)
+#39 rate:  75 % (Fahrtrichtung Links vorbei)
+#1 rate:  72.9167 % (Höchstgeschw. 30)
+#2 rate:  72.8814 % (Höchstgeschw. 50)
+#11 rate:  72 % (Vorfahrt)
+#13 rate:  70.5882 % (Vorfahrt gewähren)
+#33 rate:  69.2308 % (Fahrtrichtung Rechts)
+#9 rate:  68.75 % (Überholverbot)
+#34 rate:  66.6667 % (Fahrtrichtung Links)
+#25 rate:  66.6667 % (Bauarbeiten)
+#27 rate:  66.6667 % (Fußgänger)
+#29 rate:  66.6667 % (Fahrradverkehr)
+#30 rate:  64.2857 % (Schnee- od. Eisglätte)
+#28 rate:  62.5 % (Kinderz)
+#35 rate:  60 % (Fahrtrichtung Geradeaus)
+#4 rate:  58.0645 % (Höchstgeschw. 70)
+#10 rate:  57.1429 % (Überholverbot >3,5t)
+#38 rate:  56.3636 % (Fahrtrichtung Rechts vorbei)
+#20 rate:  55.5556 % (Kurve Rechts)
+#22 rate:  55.5556 % (Unebene Fahrbahn)
+#8 rate:  55.3191 % (Höchstgeschw. 120)
+#26 rate:  54.5455 % (Ampel)
+#17 rate:  54.1667 % (Verbot der Einfahrt, Gegenverkehr)
+#23 rate:  53.8462 % (Schleudergefahr N&S)
+#36 rate:  50 % (Fahrtrichtung Geraudeaus+Rechts)
+#18 rate:  44.4444 % (Achtung)
+#16 rate:  42.8571 % (Verbot für alle LKW)
+#21 rate:  40 % (Doppelkurve)
+#12 rate:  37.037 % (Vorfahrtsstraße)
+#40 rate:  25 % (Kreisverkehr)
+#6 rate:  23.5294 % (Ende Höchstgeschw. 80)
+#41 rate:  16.6667 % (Ende überholverbot)
+#32 rate:  0 % (Ende der Geschwindigkeitsbegrenzung)
+#42 rate:  0 % (Ende überholverbot >3.5t)
